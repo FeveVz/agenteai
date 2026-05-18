@@ -1,0 +1,26 @@
+{
+  "name": "clinica-dental",
+  "version": "1.0.0",
+  "description": "Sistema de turnos para clínica dental con WhatsApp + IA",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"node server/index.js\" \"cd client && npm run dev\"",
+    "build": "cd client && npm run build",
+    "vercel-build": "cd client && npm install && npm run build",
+    "start": "node server/index.js",
+    "setup": "npm install && cd client && npm install"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.0",
+    "better-sqlite3": "^12.10.0",
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-rate-limit": "^7.2.0",
+    "openai": "^4.28.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
