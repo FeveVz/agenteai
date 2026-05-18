@@ -11,14 +11,14 @@ function obtenerClienteOpenAI() {
   return clienteOpenAI;
 }
 
-// ── Herramientas disponibles para la IA ───────────────────────────────────────
+// ── Herramientas disponibles para el agente ───────────────────────────────────
 
 const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
       name: 'consultar_disponibilidad',
-      description: 'Consulta los horarios disponibles para una fecha específica en la clínica dental.',
+      description: 'Consulta los horarios disponibles para una reunión en una fecha específica.',
       parameters: {
         type: 'object',
         properties: {
@@ -31,12 +31,12 @@ const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
-      name: 'ver_turnos_paciente',
-      description: 'Muestra los turnos activos de un paciente dado su número de teléfono.',
+      name: 'ver_reuniones_cliente',
+      description: 'Muestra las reuniones activas de un cliente dado su número de teléfono.',
       parameters: {
         type: 'object',
         properties: {
-          numero_telefono: { type: 'string', description: 'Número de teléfono del paciente.' },
+          numero_telefono: { type: 'string', description: 'Número de teléfono del cliente.' },
         },
         required: ['numero_telefono'],
       },
@@ -45,53 +45,54 @@ const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
-      name: 'agendar_turno',
-      description: 'Agenda un nuevo turno para un paciente.',
+      name: 'agendar_reunion',
+      description: 'Agenda una nueva reunión de consultoría o presentación de servicios.',
       parameters: {
         type: 'object',
         properties: {
           numero_telefono: { type: 'string' },
-          nombre_paciente: { type: 'string' },
-          fecha_turno: { type: 'string', description: 'Formato ISO: "2026-03-22T14:30:00"' },
-          tipo_turno: { type: 'string' },
-          notas: { type: 'string' },
+          nombre_cliente: { type: 'string', description: 'Nombre completo del cliente o contacto.' },
+          empresa: { type: 'string', description: 'Empresa u organización del cliente (opcional).' },
+          fecha_reunion: { type: 'string', description: 'Formato ISO: "2026-03-22T14:30:00"' },
+          tipo_servicio: { type: 'string', description: 'Servicio de interés. Ej: "Consultoría de Marketing", "Auditoría de Redes Sociales"' },
+          notas: { type: 'string', description: 'Información adicional o necesidades específicas del cliente (opcional).' },
         },
-        required: ['numero_telefono', 'nombre_paciente', 'fecha_turno', 'tipo_turno'],
+        required: ['numero_telefono', 'nombre_cliente', 'fecha_reunion', 'tipo_servicio'],
       },
     },
   },
   {
     type: 'function',
     function: {
-      name: 'cancelar_turno',
-      description: 'Cancela un turno existente dado su ID.',
+      name: 'cancelar_reunion',
+      description: 'Cancela una reunión existente dado su ID.',
       parameters: {
         type: 'object',
         properties: {
-          id_turno: { type: 'integer' },
+          id_reunion: { type: 'integer' },
         },
-        required: ['id_turno'],
+        required: ['id_reunion'],
       },
     },
   },
   {
     type: 'function',
     function: {
-      name: 'reprogramar_turno',
-      description: 'Reprograma un turno a una nueva fecha y hora.',
+      name: 'reprogramar_reunion',
+      description: 'Reprograma una reunión a una nueva fecha y hora.',
       parameters: {
         type: 'object',
         properties: {
-          id_turno: { type: 'integer' },
+          id_reunion: { type: 'integer' },
           nueva_fecha: { type: 'string', description: 'Formato ISO: "2026-03-25T10:00:00"' },
         },
-        required: ['id_turno', 'nueva_fecha'],
+        required: ['id_reunion', 'nueva_fecha'],
       },
     },
   },
 ];
 
-// ── Ejecución de herramientas (async) contra Supabase ────────────────────────
+// ── Ejecución de herramientas contra Supabase ─────────────────────────────────
 
 async function ejecutarHerramienta(nombre, argumentos) {
   const supabase = obtenerSupabase();
@@ -99,18 +100,18 @@ async function ejecutarHerramienta(nombre, argumentos) {
   switch (nombre) {
     case 'consultar_disponibilidad': {
       const { fecha } = argumentos;
-      const { data: turnos } = await supabase
-        .from('turnos')
+      const { data: reuniones } = await supabase
+        .from('reuniones')
         .select('*')
-        .gte('fecha_turno', `${fecha}T00:00:00`)
-        .lte('fecha_turno', `${fecha}T23:59:59`)
-        .neq('estado', 'cancelado')
-        .order('fecha_turno', { ascending: true });
+        .gte('fecha_reunion', `${fecha}T00:00:00`)
+        .lte('fecha_reunion', `${fecha}T23:59:59`)
+        .neq('estado', 'cancelada')
+        .order('fecha_reunion', { ascending: true });
 
-      const libres = calcularHorariosLibres(turnos || []);
-      const ocupados = (turnos || []).map(t => ({
-        hora: t.fecha_turno.substring(11, 16),
-        tipo: t.tipo_turno,
+      const libres = calcularHorariosLibres(reuniones || []);
+      const ocupados = (reuniones || []).map(r => ({
+        hora: r.fecha_reunion.substring(11, 16),
+        servicio: r.tipo_servicio,
       }));
 
       return {
@@ -119,63 +120,64 @@ async function ejecutarHerramienta(nombre, argumentos) {
         horarios_ocupados: ocupados,
         total_disponibles: libres.length,
         mensaje: libres.length === 0
-          ? `No hay turnos disponibles para el ${fecha}.`
+          ? `No hay horarios disponibles el ${fecha}.`
           : `Hay ${libres.length} horarios disponibles el ${fecha}.`,
       };
     }
 
-    case 'ver_turnos_paciente': {
+    case 'ver_reuniones_cliente': {
       const { numero_telefono } = argumentos;
-      const { data: turnos } = await supabase
-        .from('turnos')
+      const { data: reuniones } = await supabase
+        .from('reuniones')
         .select('*')
         .eq('numero_telefono', numero_telefono)
-        .neq('estado', 'cancelado')
-        .order('fecha_turno', { ascending: false })
+        .neq('estado', 'cancelada')
+        .order('fecha_reunion', { ascending: false })
         .limit(10);
 
-      if (!turnos || turnos.length === 0) {
-        return { turnos: [], mensaje: 'No tenés turnos activos.' };
+      if (!reuniones || reuniones.length === 0) {
+        return { reuniones: [], mensaje: 'No tenés reuniones agendadas.' };
       }
 
       return {
-        turnos: turnos.map(t => ({
-          id: t.id,
-          fecha: formatearFechaCompleta(t.fecha_turno),
-          tipo: t.tipo_turno,
-          estado: t.estado,
-          notas: t.notas,
+        reuniones: reuniones.map(r => ({
+          id: r.id,
+          fecha: formatearFechaCompleta(r.fecha_reunion),
+          tipo_servicio: r.tipo_servicio,
+          empresa: r.empresa,
+          estado: r.estado,
+          notas: r.notas,
         })),
-        total: turnos.length,
+        total: reuniones.length,
       };
     }
 
-    case 'agendar_turno': {
-      const { numero_telefono, nombre_paciente, fecha_turno, tipo_turno, notas } = argumentos;
+    case 'agendar_reunion': {
+      const { numero_telefono, nombre_cliente, empresa, fecha_reunion, tipo_servicio, notas } = argumentos;
 
-      // Verificar que el horario no esté ocupado
       const { data: existente } = await supabase
-        .from('turnos')
+        .from('reuniones')
         .select('id')
-        .eq('fecha_turno', fecha_turno)
-        .neq('estado', 'cancelado')
+        .eq('fecha_reunion', fecha_reunion)
+        .neq('estado', 'cancelada')
         .limit(1);
 
       if (existente && existente.length > 0) {
         return {
           exito: false,
-          mensaje: `El horario ${formatearFechaCompleta(fecha_turno)} ya está ocupado. Por favor elegí otro.`,
+          mensaje: `El horario ${formatearFechaCompleta(fecha_reunion)} ya está ocupado. ¿Te viene bien otro horario?`,
         };
       }
 
-      const { data: nuevoTurno, error } = await supabase
-        .from('turnos')
+      const { data: nuevaReunion, error } = await supabase
+        .from('reuniones')
         .insert({
           numero_telefono,
-          nombre_paciente,
-          fecha_turno,
-          tipo_turno,
-          estado: 'confirmado',
+          nombre_cliente,
+          empresa: empresa || null,
+          fecha_reunion,
+          tipo_servicio,
+          estado: 'confirmada',
           notas: notas || null,
         })
         .select()
@@ -185,65 +187,65 @@ async function ejecutarHerramienta(nombre, argumentos) {
 
       return {
         exito: true,
-        id_turno: nuevoTurno.id,
-        mensaje: `✅ Turno confirmado para ${nombre_paciente} el ${formatearFechaCompleta(fecha_turno)} — ${tipo_turno}.`,
+        id_reunion: nuevaReunion.id,
+        mensaje: `✅ Reunión confirmada para ${nombre_cliente}${empresa ? ` (${empresa})` : ''} el ${formatearFechaCompleta(fecha_reunion)} — ${tipo_servicio}.`,
       };
     }
 
-    case 'cancelar_turno': {
-      const { id_turno } = argumentos;
+    case 'cancelar_reunion': {
+      const { id_reunion } = argumentos;
 
-      const { data: turno } = await supabase
-        .from('turnos')
+      const { data: reunion } = await supabase
+        .from('reuniones')
         .select('*')
-        .eq('id', id_turno)
+        .eq('id', id_reunion)
         .single();
 
-      if (!turno) {
-        return { exito: false, mensaje: `No encontré ningún turno con el ID ${id_turno}.` };
+      if (!reunion) {
+        return { exito: false, mensaje: `No encontré ninguna reunión con el ID ${id_reunion}.` };
       }
 
-      await supabase.from('turnos').update({ estado: 'cancelado' }).eq('id', id_turno);
+      await supabase.from('reuniones').update({ estado: 'cancelada' }).eq('id', id_reunion);
 
       return {
         exito: true,
-        mensaje: `✅ Turno del ${formatearFechaCompleta(turno.fecha_turno)} cancelado correctamente.`,
+        mensaje: `✅ Reunión del ${formatearFechaCompleta(reunion.fecha_reunion)} cancelada correctamente.`,
       };
     }
 
-    case 'reprogramar_turno': {
-      const { id_turno, nueva_fecha } = argumentos;
+    case 'reprogramar_reunion': {
+      const { id_reunion, nueva_fecha } = argumentos;
 
-      const { data: turno } = await supabase
-        .from('turnos')
+      const { data: reunion } = await supabase
+        .from('reuniones')
         .select('*')
-        .eq('id', id_turno)
+        .eq('id', id_reunion)
         .single();
 
-      if (!turno) {
-        return { exito: false, mensaje: `No encontré ningún turno con el ID ${id_turno}.` };
+      if (!reunion) {
+        return { exito: false, mensaje: `No encontré ninguna reunión con el ID ${id_reunion}.` };
       }
 
       const { data: conflicto } = await supabase
-        .from('turnos')
+        .from('reuniones')
         .select('id')
-        .eq('fecha_turno', nueva_fecha)
-        .neq('estado', 'cancelado')
-        .neq('id', id_turno)
+        .eq('fecha_reunion', nueva_fecha)
+        .neq('estado', 'cancelada')
+        .neq('id', id_reunion)
         .limit(1);
 
       if (conflicto && conflicto.length > 0) {
         return {
           exito: false,
-          mensaje: `El horario ${formatearFechaCompleta(nueva_fecha)} ya está ocupado. Elegí otro.`,
+          mensaje: `El horario ${formatearFechaCompleta(nueva_fecha)} ya está ocupado. ¿Querés otro?`,
         };
       }
 
-      await supabase.from('turnos').update({ fecha_turno: nueva_fecha }).eq('id', id_turno);
+      await supabase.from('reuniones').update({ fecha_reunion: nueva_fecha }).eq('id', id_reunion);
 
       return {
         exito: true,
-        mensaje: `✅ Turno reprogramado para el ${formatearFechaCompleta(nueva_fecha)}.`,
+        mensaje: `✅ Reunión reprogramada para el ${formatearFechaCompleta(nueva_fecha)}.`,
       };
     }
 
@@ -254,37 +256,41 @@ async function ejecutarHerramienta(nombre, argumentos) {
 
 // ── Función principal ─────────────────────────────────────────────────────────
 
-async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configClinica, historial) {
+async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configAgencia, historial) {
   const openai = obtenerClienteOpenAI();
 
-  let serviciosTexto = configClinica.servicios || '[]';
+  let serviciosTexto = configAgencia.servicios || '[]';
   try { serviciosTexto = JSON.parse(serviciosTexto).join(', '); } catch { /* usa como string */ }
 
-  const systemPrompt = `Sos Sarah, la recepcionista virtual de ${configClinica.nombre_clinica || 'la clínica'}. Sos amable, profesional y eficiente.
+  const systemPrompt = `Sos Valeria, la asistente virtual de Suggestion, agencia de marketing digital. Sos profesional, dinámica y orientada a resultados.
+
+Slogan de la agencia: "${configAgencia.slogan || 'Consigue lo posible haciendo lo imposible'}"
 
 Tu rol es:
-- Responder preguntas sobre la clínica, servicios y horarios
-- Ayudar a los pacientes a agendar, consultar, cancelar o reprogramar turnos
-- Ser cálida y concisa en tus respuestas
-- Usar español rioplatense (tuteo con "vos", no "usted")
-- Usar emojis moderadamente
+- Responder consultas sobre los servicios de Suggestion
+- Agendar, consultar, cancelar o reprogramar reuniones con el equipo
+- Calificar el interés del prospecto (qué servicio le interesa, tamaño de empresa, objetivo)
+- Ser entusiasta pero concisa — generás confianza en la agencia
 
-Información de la clínica:
-- Nombre: ${configClinica.nombre_clinica || 'No especificado'}
-- Dirección: ${configClinica.direccion || 'No especificada'}
-- Teléfono: ${configClinica.telefono || 'No especificado'}
-- Email: ${configClinica.email || 'No especificado'}
-- Horarios: ${configClinica.horarios || 'No especificados'}
-- Servicios: ${serviciosTexto}
-- Sobre nosotros: ${configClinica.sobre_clinica || ''}
+Información de Suggestion:
+- Agencia: ${configAgencia.nombre_agencia || 'Suggestion'}
+- Dirección: ${configAgencia.direccion || 'Perú'}
+- Teléfono / WhatsApp: ${configAgencia.telefono || '+51 937770159'}
+- Email: ${configAgencia.email || 'suggesion.mk@gmail.com'}
+- Horarios de atención: ${configAgencia.horarios || 'Lunes a Viernes 9:00 - 18:00'}
+- Servicios que ofrecemos: ${serviciosTexto}
+- Sobre nosotros: ${configAgencia.sobre_agencia || 'Agencia de marketing digital con +10 años de experiencia, 150+ clientes satisfechos y clientes como Mazda, Renault y Repsol.'}
 
-El número del paciente es: ${numeroTelefono}
+El número de WhatsApp del cliente es: ${numeroTelefono}
 
-Reglas:
-- Para agendar, pedí siempre: nombre completo, fecha/hora preferida y tipo de consulta
-- Turnos disponibles de 9:00 a 18:00 hs, cada 30 minutos
-- Nunca inventés información que no tengas
-- Usá el número de teléfono del paciente que te indiqué arriba al agendar`;
+Reglas importantes:
+- Cuando alguien quiera agendar una reunión, pedí: nombre completo, empresa (opcional) y qué servicio le interesa
+- Las reuniones son de 9:00 a 18:00 hs, cada 30 minutos
+- Si preguntan por precios, explicá que los presupuestos son personalizados y los cotizamos en la reunión
+- Siempre invitá a agendar una reunión de consultoría gratuita
+- Usá español latinoamericano neutro (sin tuteo excesivo, profesional pero cercano)
+- Nunca inventés información sobre clientes, precios o resultados que no tengas
+- Si no podés resolver algo, derivá al equipo por email: ${configAgencia.email || 'suggesion.mk@gmail.com'}`;
 
   const mensajes = [{ role: 'system', content: systemPrompt }];
 
@@ -309,7 +315,6 @@ Reglas:
 
   let mensaje = respuesta.choices[0].message;
 
-  // Ejecutar herramientas si las hay
   while (mensaje.tool_calls && mensaje.tool_calls.length > 0) {
     console.log(`[OpenAI] Ejecutando ${mensaje.tool_calls.length} herramienta(s)...`);
     mensajes.push(mensaje);
@@ -341,7 +346,7 @@ Reglas:
     mensaje = respuesta.choices[0].message;
   }
 
-  return mensaje.content || 'Disculpá, no pude procesar tu mensaje. ¿Podés repetirlo?';
+  return mensaje.content || '¡Hola! Soy Valeria de Suggestion. ¿En qué puedo ayudarte hoy?';
 }
 
 module.exports = { procesarMensajeConIA };

@@ -1,114 +1,117 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// Hook para animaciones al hacer scroll (Intersection Observer)
 function useScrollAnimation() {
   const ref = useRef(null);
-
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('animate-fade-in-up');
-            entry.target.style.opacity = '1';
-            observer.unobserve(entry.target);
-          }
-        });
-      },
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add('animate-fade-in-up');
+          e.target.style.opacity = '1';
+          observer.unobserve(e.target);
+        }
+      }),
       { threshold: 0.1 }
     );
-
-    const elementos = ref.current?.querySelectorAll('.animar-al-scroll');
-    elementos?.forEach((el) => {
-      el.style.opacity = '0';
-      observer.observe(el);
-    });
-
+    const els = ref.current?.querySelectorAll('.animar-al-scroll');
+    els?.forEach((el) => { el.style.opacity = '0'; observer.observe(el); });
     return () => observer.disconnect();
   }, []);
-
   return ref;
 }
 
 export default function Landing() {
   const navigate = useNavigate();
-  const seccionCaracteristicas = useScrollAnimation();
-  const seccionPasos = useScrollAnimation();
+  const refCards = useScrollAnimation();
+  const refPasos = useScrollAnimation();
 
   return (
     <div className="min-h-screen bg-white font-sans">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🦷</span>
-            <span className="font-semibold text-slate-800 text-lg">Clínica Dental Sonrisa</span>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">S</span>
+            </div>
+            <span className="font-bold text-slate-800 text-lg tracking-tight">Suggestion</span>
           </div>
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200"
+            className="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200"
           >
-            Dashboard
+            Panel de Control
           </button>
         </div>
       </header>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-sky-50 via-white to-blue-50">
-        {/* Decoración de fondo */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full opacity-30 -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-0 w-72 h-72 bg-sky-100 rounded-full opacity-40 translate-y-1/2 -translate-x-1/3" />
+      <section className="relative overflow-hidden bg-gradient-to-br from-violet-50 via-white to-purple-50">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-violet-100 rounded-full opacity-40 -translate-y-1/3 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-100 rounded-full opacity-30 translate-y-1/2 -translate-x-1/3" />
 
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-20 md:py-28">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Texto */}
+          <div className="grid md:grid-cols-2 gap-14 items-center">
             <div className="animate-fade-in-up">
-              <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-sm font-medium px-4 py-2 rounded-full mb-6">
+              <div className="inline-flex items-center gap-2 bg-violet-100 text-violet-700 text-sm font-medium px-4 py-2 rounded-full mb-6">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                Disponible 24/7 por WhatsApp
+                Atención 24/7 por WhatsApp
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 leading-tight mb-6">
-                Tu Clínica Dental,{' '}
-                <span className="text-blue-700">Siempre Disponible</span>
+              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 leading-tight mb-4">
+                Consigue lo posible{' '}
+                <span className="text-violet-600">haciendo lo imposible</span>
               </h1>
-              <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                Sarah, nuestra recepcionista virtual con IA, atiende a tus pacientes por WhatsApp
-                en cualquier momento. Agendá, cancelá y consultá turnos sin esperas ni llamadas.
+              <p className="text-lg text-slate-500 leading-relaxed mb-8">
+                Valeria, nuestra asistente con IA, atiende a tus prospectos por WhatsApp en cualquier momento.
+                Agenda reuniones, responde consultas y califica leads — sin que intervenga nadie del equipo.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-8 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5"
+                  className="bg-violet-600 hover:bg-violet-700 text-white font-semibold px-8 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-violet-200 hover:-translate-y-0.5"
                 >
-                  Ir al Dashboard →
+                  Ir al Panel →
                 </button>
                 <a
                   href="#como-funciona"
-                  className="border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 font-medium px-8 py-3 rounded-xl transition-all duration-200 text-center"
+                  className="border border-slate-200 hover:border-violet-300 text-slate-700 hover:text-violet-700 font-medium px-8 py-3 rounded-xl transition-all duration-200 text-center"
                 >
                   ¿Cómo funciona?
                 </a>
+              </div>
+
+              {/* Stats */}
+              <div className="flex gap-8 mt-10 pt-8 border-t border-slate-100">
+                {[
+                  { valor: '150+', label: 'Clientes satisfechos' },
+                  { valor: '500+', label: 'Proyectos completados' },
+                  { valor: '95%', label: 'Tasa de retención' },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <p className="text-2xl font-bold text-violet-600">{stat.valor}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{stat.label}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Ilustración */}
             <div className="flex justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
               <div className="relative">
-                <div className="w-72 h-72 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-2xl shadow-blue-200 flex items-center justify-center">
+                <div className="w-72 h-72 bg-gradient-to-br from-violet-600 to-purple-700 rounded-3xl shadow-2xl shadow-violet-200 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="text-8xl mb-4">🦷</div>
+                    <div className="text-7xl mb-3">💼</div>
                     <div className="text-white text-4xl">💬</div>
                   </div>
                 </div>
-                {/* Chat bubble decorativo */}
-                <div className="absolute -top-4 -right-4 bg-white rounded-2xl shadow-lg p-4 max-w-48 border border-slate-100">
-                  <p className="text-xs text-slate-500 mb-1">Sarah — Ahora</p>
-                  <p className="text-sm text-slate-800">¡Hola! ¿Querés agendar un turno? 😊</p>
+                <div className="absolute -top-4 -right-6 bg-white rounded-2xl shadow-xl p-4 max-w-52 border border-slate-100">
+                  <p className="text-xs text-slate-400 mb-1">Valeria — Ahora</p>
+                  <p className="text-sm text-slate-800">¡Hola! ¿Te interesa impulsar tu marca? 🚀</p>
                 </div>
-                <div className="absolute -bottom-4 -left-4 bg-green-50 rounded-2xl shadow-lg p-4 max-w-44 border border-green-100">
-                  <p className="text-xs text-green-600 font-medium mb-1">✅ Turno confirmado</p>
-                  <p className="text-sm text-slate-700">Martes 22/03 — 14:30 hs</p>
+                <div className="absolute -bottom-4 -left-6 bg-violet-50 rounded-2xl shadow-lg p-4 max-w-48 border border-violet-100">
+                  <p className="text-xs text-violet-600 font-medium mb-1">✅ Reunión confirmada</p>
+                  <p className="text-sm text-slate-700">Consultoría — Mar 22, 14:30</p>
                 </div>
               </div>
             </div>
@@ -116,43 +119,40 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Características ──────────────────────────────────────────────── */}
-      <section ref={seccionCaracteristicas} className="py-20 bg-white">
+      {/* ── Servicios ────────────────────────────────────────────────────── */}
+      <section ref={refCards} className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-12 animar-al-scroll">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Todo lo que necesita tu clínica
+              Lo que Valeria hace por vos
             </h2>
             <p className="text-slate-500 text-lg max-w-2xl mx-auto">
-              Un sistema completo que automatiza la gestión de turnos y mejora la experiencia de tus pacientes.
+              Tu asistente IA trabaja mientras tu equipo cierra negocios.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-6">
             {[
               {
                 emoji: '🕐',
                 titulo: 'Disponible 24/7',
-                descripcion:
-                  'Tus pacientes pueden agendar turnos a cualquier hora, incluso los fines de semana. Sin esperas, sin llamadas perdidas.',
-                color: 'from-blue-50 to-sky-50',
-                borde: 'border-blue-100',
+                descripcion: 'Ningún prospecto queda sin respuesta. Valeria atiende a cualquier hora, incluso fines de semana y feriados.',
+                color: 'from-violet-50 to-purple-50',
+                borde: 'border-violet-100',
               },
               {
                 emoji: '📅',
-                titulo: 'Turnos Automáticos',
-                descripcion:
-                  'Agendá, cancelá o reprogramá turnos directamente por WhatsApp. El sistema gestiona todo sin intervención manual.',
-                color: 'from-emerald-50 to-teal-50',
-                borde: 'border-emerald-100',
+                titulo: 'Agenda Automática',
+                descripcion: 'Coordina reuniones de consultoría, presentaciones y seguimientos sin que nadie del equipo intervenga.',
+                color: 'from-blue-50 to-indigo-50',
+                borde: 'border-blue-100',
               },
               {
-                emoji: '🤖',
-                titulo: 'IA Inteligente',
-                descripcion:
-                  'Sarah recuerda el contexto de cada conversación, responde al instante y nunca comete errores de agenda.',
-                color: 'from-purple-50 to-violet-50',
-                borde: 'border-purple-100',
+                emoji: '🎯',
+                titulo: 'Califica Leads',
+                descripcion: 'Identifica qué servicio necesita cada prospecto, tamaño de empresa y objetivo — información lista para el equipo de ventas.',
+                color: 'from-emerald-50 to-teal-50',
+                borde: 'border-emerald-100',
               },
             ].map((card, i) => (
               <div
@@ -169,63 +169,53 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Servicios de la agencia ──────────────────────────────────────── */}
+      <section className="py-16 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Nuestros servicios</h2>
+            <p className="text-slate-500">Valeria conoce cada uno en detalle y los presenta con precisión</p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {[
+              'Marketing Digital', 'Redes Sociales', 'Meta Ads & Google Ads',
+              'SEO', 'Branding', 'Desarrollo Web',
+              'Consultoría Estratégica', 'CRM y Automatización', 'Producción Audiovisual',
+              'Investigación de Mercado',
+            ].map((servicio) => (
+              <span
+                key={servicio}
+                className="bg-white border border-violet-200 text-violet-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm"
+              >
+                {servicio}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Cómo funciona ────────────────────────────────────────────────── */}
-      <section
-        id="como-funciona"
-        ref={seccionPasos}
-        className="py-20 bg-gradient-to-br from-slate-50 to-sky-50"
-      >
+      <section id="como-funciona" ref={refPasos} className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14 animar-al-scroll">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Cómo funciona
-            </h2>
-            <p className="text-slate-500 text-lg">
-              En tres simples pasos, tu paciente tiene su turno confirmado.
-            </p>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Cómo funciona</h2>
+            <p className="text-slate-500 text-lg">Del primer mensaje a la reunión confirmada en segundos.</p>
           </div>
-
           <div className="relative">
-            {/* Línea conectora */}
-            <div className="absolute left-8 top-12 bottom-12 w-0.5 bg-blue-200 hidden md:block" />
-
+            <div className="absolute left-8 top-12 bottom-12 w-0.5 bg-violet-200 hidden md:block" />
             <div className="space-y-8">
               {[
-                {
-                  paso: 1,
-                  titulo: 'Escribí al WhatsApp de la clínica',
-                  descripcion:
-                    'El paciente manda un mensaje de WhatsApp al número de la clínica, en cualquier momento del día.',
-                  icono: '💬',
-                },
-                {
-                  paso: 2,
-                  titulo: 'Sarah te atiende al instante',
-                  descripcion:
-                    'La IA responde de inmediato, entiende qué necesita el paciente y consulta la disponibilidad en tiempo real.',
-                  icono: '🤖',
-                },
-                {
-                  paso: 3,
-                  titulo: 'Tu turno queda confirmado',
-                  descripcion:
-                    'El turno se agenda automáticamente en el sistema. El paciente recibe confirmación y el staff lo ve en el dashboard.',
-                  icono: '✅',
-                },
+                { paso: 1, icono: '💬', titulo: 'El prospecto escribe al WhatsApp', descripcion: 'Cualquier persona interesada en los servicios de Suggestion escribe al número de WhatsApp, en cualquier momento.' },
+                { paso: 2, icono: '🤖', titulo: 'Valeria responde al instante', descripcion: 'La IA entiende qué necesita el prospecto, responde con información precisa sobre servicios y lo guía hacia una reunión.' },
+                { paso: 3, icono: '📅', titulo: 'La reunión queda confirmada', descripcion: 'Se agenda automáticamente con nombre, empresa y servicio de interés. El equipo recibe todo listo en el panel.' },
               ].map((item, i) => (
-                <div
-                  key={item.paso}
-                  className="animar-al-scroll flex gap-6 items-start"
-                  style={{ animationDelay: `${i * 150}ms` }}
-                >
-                  <div className="flex-shrink-0 w-16 h-16 bg-blue-700 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 z-10">
+                <div key={item.paso} className="animar-al-scroll flex gap-6 items-start" style={{ animationDelay: `${i * 150}ms` }}>
+                  <div className="flex-shrink-0 w-16 h-16 bg-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-200 z-10">
                     <span className="text-2xl">{item.icono}</span>
                   </div>
-                  <div className="bg-white rounded-2xl p-6 flex-1 shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-200">
+                  <div className="bg-white rounded-2xl p-6 flex-1 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-                        Paso {item.paso}
-                      </span>
+                      <span className="bg-violet-100 text-violet-700 text-xs font-semibold px-2.5 py-1 rounded-full">Paso {item.paso}</span>
                       <h3 className="font-semibold text-slate-800 text-lg">{item.titulo}</h3>
                     </div>
                     <p className="text-slate-500 leading-relaxed">{item.descripcion}</p>
@@ -237,20 +227,18 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── CTA Final ────────────────────────────────────────────────────── */}
-      <section className="py-20 bg-blue-700">
+      {/* ── CTA ─────────────────────────────────────────────────────────── */}
+      <section className="py-20 bg-gradient-to-br from-violet-600 to-purple-700">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Empezá hoy mismo
-          </h2>
-          <p className="text-blue-200 text-lg mb-8">
-            Accedé al dashboard para configurar tu clínica y conectar con WhatsApp en minutos.
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Empezá ahora</h2>
+          <p className="text-violet-200 text-lg mb-8">
+            Configurá Valeria para Suggestion y empezá a captar reuniones automáticamente.
           </p>
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-10 py-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-lg"
+            className="bg-white text-violet-700 hover:bg-violet-50 font-semibold px-10 py-4 rounded-xl transition-all duration-200 shadow-lg hover:-translate-y-0.5 text-lg"
           >
-            Ir al Dashboard →
+            Ir al Panel →
           </button>
         </div>
       </section>
@@ -259,15 +247,16 @@ export default function Landing() {
       <footer className="bg-slate-900 text-slate-400 py-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🦷</span>
-            <span className="text-slate-300 font-medium">Clínica Dental Sonrisa</span>
+            <div className="w-6 h-6 bg-violet-600 rounded flex items-center justify-center">
+              <span className="text-white font-bold text-xs">S</span>
+            </div>
+            <span className="text-slate-300 font-medium">Suggestion</span>
+            <span className="text-slate-600">·</span>
+            <span className="text-sm">Agencia de Marketing Digital</span>
           </div>
-          <p className="text-sm">Sistema de gestión de turnos con IA — {new Date().getFullYear()}</p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
-          >
-            Acceder al Dashboard →
+          <p className="text-sm">suggesion.mk@gmail.com · +51 937770159</p>
+          <button onClick={() => navigate('/dashboard')} className="text-violet-400 hover:text-violet-300 text-sm transition-colors">
+            Panel de Control →
           </button>
         </div>
       </footer>

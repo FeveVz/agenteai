@@ -3,25 +3,24 @@ const { obtenerSupabase } = require('../db');
 
 const router = express.Router();
 
-// GET /api/turnos — Todos los turnos
+// GET /api/reuniones — Todas las reuniones
 router.get('/', async (req, res) => {
   try {
     const supabase = obtenerSupabase();
-    const { data: turnos, error } = await supabase
-      .from('turnos')
+    const { data: reuniones, error } = await supabase
+      .from('reuniones')
       .select('*')
-      .order('fecha_turno', { ascending: false });
+      .order('fecha_reunion', { ascending: false });
 
     if (error) throw error;
-
-    res.json({ ok: true, turnos: turnos || [] });
+    res.json({ ok: true, reuniones: reuniones || [] });
   } catch (error) {
-    console.error('[API Turnos] Error al obtener turnos:', error);
-    res.status(500).json({ error: 'Error al obtener turnos', detalle: error.message });
+    console.error('[API Reuniones] Error:', error);
+    res.status(500).json({ error: 'Error al obtener reuniones', detalle: error.message });
   }
 });
 
-// GET /api/turnos/:fecha — Turnos de una fecha (formato YYYY-MM-DD)
+// GET /api/reuniones/:fecha — Reuniones de una fecha (YYYY-MM-DD)
 router.get('/:fecha', async (req, res) => {
   const { fecha } = req.params;
 
@@ -34,20 +33,18 @@ router.get('/:fecha', async (req, res) => {
 
   try {
     const supabase = obtenerSupabase();
-    // fecha_turno se guarda como string ISO, filtramos por prefijo de fecha
-    const { data: turnos, error } = await supabase
-      .from('turnos')
+    const { data: reuniones, error } = await supabase
+      .from('reuniones')
       .select('*')
-      .gte('fecha_turno', `${fecha}T00:00:00`)
-      .lte('fecha_turno', `${fecha}T23:59:59`)
-      .order('fecha_turno', { ascending: true });
+      .gte('fecha_reunion', `${fecha}T00:00:00`)
+      .lte('fecha_reunion', `${fecha}T23:59:59`)
+      .order('fecha_reunion', { ascending: true });
 
     if (error) throw error;
-
-    res.json({ ok: true, fecha, turnos: turnos || [] });
+    res.json({ ok: true, fecha, reuniones: reuniones || [] });
   } catch (error) {
-    console.error(`[API Turnos] Error para fecha ${req.params.fecha}:`, error);
-    res.status(500).json({ error: 'Error al obtener turnos', detalle: error.message });
+    console.error(`[API Reuniones] Error para ${req.params.fecha}:`, error);
+    res.status(500).json({ error: 'Error al obtener reuniones', detalle: error.message });
   }
 });
 

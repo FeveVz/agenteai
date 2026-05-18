@@ -3,7 +3,7 @@ const { obtenerSupabase } = require('../db');
 
 const router = express.Router();
 
-// GET /api/mensajes — Últimos 50 mensajes ordenados por fecha descendente
+// GET /api/mensajes — Últimos 50 mensajes
 router.get('/', async (req, res) => {
   try {
     const supabase = obtenerSupabase();
@@ -14,7 +14,6 @@ router.get('/', async (req, res) => {
       .limit(50);
 
     if (error) throw error;
-
     res.json({ ok: true, mensajes: mensajes || [] });
   } catch (error) {
     console.error('[API Mensajes] Error:', error);
