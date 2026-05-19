@@ -262,7 +262,16 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configAgenci
   let serviciosTexto = configAgencia.servicios || '[]';
   try { serviciosTexto = JSON.parse(serviciosTexto).join(', '); } catch { /* usa como string */ }
 
+  const ahora = new Date().toLocaleString('es-PE', {
+    timeZone: 'America/Lima',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+
   const systemPrompt = `Sos Valeria, la asistente virtual de Suggestion, agencia de marketing digital. Sos profesional, dinámica y orientada a resultados.
+
+FECHA Y HORA ACTUAL (Perú, Lima): ${ahora}
+Usá esta fecha como referencia para todas las consultas de disponibilidad y agendamiento. Nunca uses fechas del pasado para agendar reuniones.
 
 Slogan de la agencia: "${configAgencia.slogan || 'Consigue lo posible haciendo lo imposible'}"
 
