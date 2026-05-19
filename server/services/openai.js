@@ -116,12 +116,13 @@ async function ejecutarHerramienta(nombre, argumentos) {
 
       return {
         fecha,
-        horarios_libres: libres,
+        horarios_libres: libres.slice(0, 6),
+        horarios_libres_nota: libres.length > 6 ? `Mostrando 6 de ${libres.length} horarios disponibles. Podés pedir más opciones.` : undefined,
         horarios_ocupados: ocupados,
         total_disponibles: libres.length,
         mensaje: libres.length === 0
           ? `No hay horarios disponibles el ${fecha}.`
-          : `Hay ${libres.length} horarios disponibles el ${fecha}.`,
+          : `Hay ${libres.length} horarios disponibles el ${fecha}. Mostrando los primeros 6.`,
       };
     }
 

@@ -45,7 +45,7 @@ function generarHorariosDelDia() {
  * Extrae los horarios ocupados de una lista de turnos
  */
 function extraerHorariosOcupados(turnos) {
-  return turnos.map(t => formatearHora(t.fecha_turno));
+  return turnos.map(t => formatearHora(t.fecha_reunion || t.fecha_turno));
 }
 
 /**
