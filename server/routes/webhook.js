@@ -67,25 +67,40 @@ router.post('/whatsapp', async (req, res) => {
 
     const historial = (historialRaw || []).reverse().slice(0, -1);
 
+    const TIMEOUT_TWILIO = 10000;
     let respuestaIA;
+    let timedOut = false;
+
     try {
-      respuestaIA = await procesarMensajeConIA(
+      const iaPromise = procesarMensajeConIA(
         numeroTelefono,
         contenidoMensaje,
         configAgencia || {},
         historial
       );
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_TWILIO)
+      );
+      respuestaIA = await Promise.race([iaPromise, timeoutPromise]);
     } catch (errorIA) {
-      console.error('[Webhook] Error OpenAI:', errorIA.message);
-      await supabase.from('mensajes_whatsapp').insert({
-        numero_telefono: numeroTelefono,
-        contenido_mensaje: '[Error: falla de OpenAI]',
-        remitente: 'asistente',
-        tipo_mensaje: 'texto',
-        procesado: 0,
-      });
-      res.set('Content-Type', 'text/xml');
-      return res.send(generarRespuestaError(configAgencia?.telefono));
+      if (errorIA.message === 'TIMEOUT') {
+        console.warn('[Webhook] OpenAI tardó más de 10s — respondiendo a Twilio sin esperar');
+        timedOut = true;
+        res.set('Content-Type', 'text/xml');
+        res.send(generarRespuestaTwiML('Dame un segundo, estoy procesando tu consulta... ✍️'));
+      } else {
+        console.error('[Webhook] Error OpenAI:', errorIA.message);
+        await supabase.from('mensajes_whatsapp').insert({
+          numero_telefono: numeroTelefono,
+          contenido_mensaje: '[Error: falla de OpenAI]',
+          remitente: 'asistente',
+          tipo_mensaje: 'texto',
+          procesado: 0,
+        });
+        res.set('Content-Type', 'text/xml');
+        return res.send(generarRespuestaError(configAgencia?.telefono));
+      }
+      return;
     }
 
     await supabase.from('mensajes_whatsapp').insert({
@@ -96,9 +111,13 @@ router.post('/whatsapp', async (req, res) => {
       procesado: 1,
     });
 
-    console.log(`[Webhook] Respuesta enviada a ${numeroTelefono}`);
-    res.set('Content-Type', 'text/xml');
-    res.send(generarRespuestaTwiML(respuestaIA));
+    if (!timedOut) {
+      console.log(`[Webhook] Respuesta enviada a ${numeroTelefono}`);
+      res.set('Content-Type', 'text/xml');
+      res.send(generarRespuestaTwiML(respuestaIA));
+    } else {
+      console.log(`[Webhook] Respuesta guardada en Supabase (Twilio ya respondió con mensaje de espera)`);
+    }
 
   } catch (error) {
     console.error('[Webhook] Error inesperado:', error);
