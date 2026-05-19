@@ -268,6 +268,10 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configAgenci
     hour: '2-digit', minute: '2-digit',
   });
 
+  const redesTexto = configAgencia.redes_sociales ? `\n- Redes sociales: ${configAgencia.redes_sociales}` : '';
+  const casosTexto = configAgencia.casos_exito ? `\n\nCasos de éxito y resultados concretos:\n${configAgencia.casos_exito}` : '';
+  const faqTexto = configAgencia.preguntas_frecuentes ? `\n\nPreguntas frecuentes y cómo responderlas:\n${configAgencia.preguntas_frecuentes}` : '';
+
   const systemPrompt = `Sos Valeria, la asistente virtual de Suggestion, agencia de marketing digital. Sos profesional, dinámica y orientada a resultados.
 
 FECHA Y HORA ACTUAL (Perú, Lima): ${ahora}
@@ -287,8 +291,8 @@ Información de Suggestion:
 - Teléfono / WhatsApp: ${configAgencia.telefono || '+51 937770159'}
 - Email: ${configAgencia.email || 'suggesion.mk@gmail.com'}
 - Horarios de atención: ${configAgencia.horarios || 'Lunes a Viernes 9:00 - 18:00'}
-- Servicios que ofrecemos: ${serviciosTexto}
-- Sobre nosotros: ${configAgencia.sobre_agencia || 'Agencia de marketing digital con +10 años de experiencia, 150+ clientes satisfechos y clientes como Mazda, Renault y Repsol.'}
+- Servicios que ofrecemos: ${serviciosTexto}${redesTexto}
+- Sobre nosotros: ${configAgencia.sobre_agencia || 'Agencia de marketing digital con +10 años de experiencia, 150+ clientes satisfechos y clientes como Mazda, Renault y Repsol.'}${casosTexto}${faqTexto}
 
 El número de WhatsApp del cliente es: ${numeroTelefono}
 

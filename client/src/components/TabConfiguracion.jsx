@@ -33,6 +33,7 @@ export default function TabConfiguracion() {
   const [formulario, setFormulario] = useState({
     nombre_agencia: '', slogan: '', direccion: '', telefono: '',
     email: '', horarios: '', servicios: '', sobre_agencia: '',
+    casos_exito: '', redes_sociales: '', preguntas_frecuentes: '',
   });
 
   const { data, isLoading } = useQuery({ queryKey: ['configuracion'], queryFn: obtenerConfiguracion });
@@ -49,6 +50,9 @@ export default function TabConfiguracion() {
         horarios: c.horarios || '',
         servicios: Array.isArray(c.servicios) ? c.servicios.join(', ') : c.servicios || '',
         sobre_agencia: c.sobre_agencia || '',
+        casos_exito: c.casos_exito || '',
+        redes_sociales: c.redes_sociales || '',
+        preguntas_frecuentes: c.preguntas_frecuentes || '',
       });
     }
   }, [data]);
@@ -165,6 +169,23 @@ export default function TabConfiguracion() {
             />
           </div>
           <TextareaField label="Sobre la agencia" name="sobre_agencia" value={formulario.sobre_agencia} onChange={manejarCambio} placeholder="Descripción de Suggestion, logros, clientes..." rows={4} />
+          <TextareaField
+            label="Casos de éxito y resultados"
+            name="casos_exito"
+            value={formulario.casos_exito}
+            onChange={manejarCambio}
+            placeholder={`Ejemplos concretos que Valeria puede mencionar:\n• Mazda Perú: +45% en leads calificados en 3 meses con Meta Ads\n• Repsol: rediseño de marca + sitio web con 80K visitas/mes\n• Restaurante La Feria: de 0 a 12K seguidores en Instagram en 60 días`}
+            rows={5}
+          />
+          <InputField label="Redes sociales" name="redes_sociales" value={formulario.redes_sociales} onChange={manejarCambio} placeholder="Instagram: @suggestion.mk | LinkedIn: linkedin.com/company/suggestion | TikTok: @suggestion.mk" />
+          <TextareaField
+            label="Preguntas frecuentes (FAQ)"
+            name="preguntas_frecuentes"
+            value={formulario.preguntas_frecuentes}
+            onChange={manejarCambio}
+            placeholder={`Preguntas y respuestas que Valeria debe saber:\nP: ¿Cuánto cuesta un servicio de redes sociales?\nR: Los precios son personalizados según objetivos, pero tenemos planes desde S/ 800/mes.\n\nP: ¿Trabajan con empresas pequeñas?\nR: Sí, tenemos paquetes para emprendedores y pymes.`}
+            rows={7}
+          />
 
           <div className="pt-2 flex justify-end">
             <button
