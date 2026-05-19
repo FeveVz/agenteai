@@ -5,9 +5,9 @@ import TabTurnos from '../components/TabTurnos';
 import TabConfiguracion from '../components/TabConfiguracion';
 
 const PESTANAS = [
-  { id: 'mensajes', etiqueta: '💬 Mensajes' },
-  { id: 'reuniones', etiqueta: '📅 Reuniones' },
-  { id: 'configuracion', etiqueta: '⚙️ Configuración' },
+  { id: 'mensajes', etiqueta: 'Mensajes' },
+  { id: 'reuniones', etiqueta: 'Reuniones' },
+  { id: 'configuracion', etiqueta: 'Configuración' },
 ];
 
 export default function Dashboard() {
@@ -15,36 +15,36 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 shadow-sm">
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-black border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-violet-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold">S</span>
-            </div>
             <div>
-              <h1 className="text-base font-bold text-slate-800">Panel de Control</h1>
-              <p className="text-xs text-slate-400">Suggestion — Agencia de Marketing Digital</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-bold text-white tracking-tight">Sugpestion</h1>
+                <span className="w-1.5 h-1.5 bg-sky-400 rounded-full" />
+              </div>
+              <p className="text-xs text-gray-500">Panel de Control — Agente IA</p>
             </div>
           </div>
           <button
             onClick={() => navigate('/')}
-            className="text-slate-400 hover:text-slate-700 text-sm transition-colors"
+            className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
           >
             ← Inicio
           </button>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex gap-1">
+          <div className="flex gap-0">
             {PESTANAS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setPestanaActiva(tab.id)}
-                className={`px-5 py-3 text-sm font-medium border-b-2 transition-all duration-200 ${
+                className={`px-6 py-3 text-sm font-medium border-b-2 transition-all duration-200 ${
                   pestanaActiva === tab.id
-                    ? 'border-violet-600 text-violet-700 bg-violet-50/50'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    ? 'border-sky-500 text-sky-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-700'
                 }`}
               >
                 {tab.etiqueta}

@@ -6,10 +6,10 @@ import { obtenerConfiguracion, actualizarConfiguracion } from '../lib/api';
 function InputField({ label, name, value, onChange, placeholder, type = 'text' }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-slate-700">{label}</label>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
       <input
         type={type} name={name} value={value || ''} onChange={onChange} placeholder={placeholder}
-        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
       />
     </div>
   );
@@ -18,10 +18,10 @@ function InputField({ label, name, value, onChange, placeholder, type = 'text' }
 function TextareaField({ label, name, value, onChange, placeholder, rows = 3 }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-slate-700">{label}</label>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
       <textarea
         name={name} value={value || ''} onChange={onChange} placeholder={placeholder} rows={rows}
-        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all resize-none"
       />
     </div>
   );
@@ -57,7 +57,7 @@ export default function TabConfiguracion() {
     mutationFn: actualizarConfiguracion,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['configuracion'] });
-      toast.success('Configuración guardada correctamente. ✅');
+      toast.success('Configuración guardada correctamente.');
     },
     onError: (e) => toast.error(`Error al guardar: ${e.message}`),
   });
@@ -82,8 +82,8 @@ export default function TabConfiguracion() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-48 gap-3 text-slate-400">
-        <div className="w-6 h-6 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-48 gap-3 text-gray-400">
+        <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
         <span className="text-sm">Cargando configuración...</span>
       </div>
     );
@@ -92,31 +92,31 @@ export default function TabConfiguracion() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* URL del Webhook */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-          <h2 className="text-base font-semibold text-slate-800">🔗 URL del Webhook de Twilio</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Pegá esta URL en la configuración de Twilio WhatsApp Sandbox.</p>
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-black">
+          <h2 className="text-base font-bold text-white">URL del Webhook de Twilio</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Pegá esta URL en la configuración de Twilio WhatsApp.</p>
         </div>
         <div className="p-6">
           <div className="flex gap-3 items-center mb-6">
-            <code className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 break-all font-mono">
+            <code className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 break-all font-mono">
               {webhookURL}
             </code>
             <button
               onClick={copiarWebhook}
               className={`flex-shrink-0 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                copiado ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-violet-600 hover:bg-violet-700 text-white'
+                copiado ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-black hover:bg-gray-800 text-white'
               }`}
             >
-              {copiado ? '✅ Copiado' : '📋 Copiar'}
+              {copiado ? 'Copiado' : 'Copiar'}
             </button>
           </div>
 
-          <div className="bg-violet-50 border border-violet-100 rounded-xl p-5">
-            <h3 className="font-semibold text-violet-800 mb-3 flex items-center gap-2">
-              <span>📱</span> Cómo configurar Twilio WhatsApp
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+              Cómo configurar Twilio WhatsApp
             </h3>
-            <ol className="space-y-2.5 text-sm text-violet-700">
+            <ol className="space-y-2.5 text-sm text-gray-600">
               {[
                 'Ingresá a Twilio Console → Messaging → WhatsApp Sandbox',
                 'Pegá la URL del webhook en "When a message comes in"',
@@ -124,14 +124,14 @@ export default function TabConfiguracion() {
                 'Guardá y probá enviando un WhatsApp al número del sandbox',
               ].map((paso, i) => (
                 <li key={i} className="flex gap-2.5">
-                  <span className="flex-shrink-0 w-5 h-5 bg-violet-600 text-white rounded-full flex items-center justify-center text-xs font-bold">{i + 1}</span>
+                  <span className="flex-shrink-0 w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold">{i + 1}</span>
                   <span>{paso}</span>
                 </li>
               ))}
             </ol>
-            <div className="mt-4 pt-4 border-t border-violet-200">
-              <p className="text-xs text-violet-600">
-                💡 <strong>Para desarrollo local:</strong> usá <code className="bg-violet-100 px-1.5 py-0.5 rounded">ngrok http 3001</code> para exponer el servidor.
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-xs text-gray-500">
+                <strong>Para desarrollo local:</strong> usá <code className="bg-gray-200 px-1.5 py-0.5 rounded font-mono">ngrok http 3001</code> para exponer el servidor.
               </p>
             </div>
           </div>
@@ -139,10 +139,10 @@ export default function TabConfiguracion() {
       </div>
 
       {/* Formulario de configuración */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-          <h2 className="text-base font-semibold text-slate-800">⚙️ Datos de Suggestion</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Valeria usa esta información para responder consultas de los prospectos.</p>
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-black">
+          <h2 className="text-base font-bold text-white">Datos de Suggestion</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Valeria usa esta información para responder consultas de los prospectos.</p>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); mutacion.mutate(formulario); }} className="p-6 space-y-5">
@@ -157,11 +157,11 @@ export default function TabConfiguracion() {
           <InputField label="Dirección" name="direccion" value={formulario.direccion} onChange={manejarCambio} placeholder="Residencial Jardin C4, Urb San Jose, Perú" />
           <TextareaField label="Horarios de atención" name="horarios" value={formulario.horarios} onChange={manejarCambio} placeholder="Lunes a Viernes: 9:00 - 18:00 hs&#10;Sábados: 9:00 - 13:00 hs" rows={2} />
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-slate-700">Servicios (separados por coma)</label>
+            <label className="block text-sm font-medium text-gray-700">Servicios (separados por coma)</label>
             <textarea
               name="servicios" value={formulario.servicios} onChange={manejarCambio} rows={2}
               placeholder="Marketing Digital, Redes Sociales, Meta Ads, SEO, Branding..."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all resize-none"
             />
           </div>
           <TextareaField label="Sobre la agencia" name="sobre_agencia" value={formulario.sobre_agencia} onChange={manejarCambio} placeholder="Descripción de Suggestion, logros, clientes..." rows={4} />
@@ -170,7 +170,7 @@ export default function TabConfiguracion() {
             <button
               type="submit"
               disabled={mutacion.isPending}
-              className="bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white font-medium px-8 py-3 rounded-xl transition-all duration-200 flex items-center gap-2"
+              className="bg-black hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold px-8 py-3 rounded-xl transition-all duration-200 flex items-center gap-2"
             >
               {mutacion.isPending ? (
                 <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Guardando...</>
