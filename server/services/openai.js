@@ -297,7 +297,9 @@ Información de Suggestion:
 El número de WhatsApp del cliente es: ${numeroTelefono}
 
 Reglas importantes:
-- Cuando alguien quiera agendar una reunión, pedí: nombre completo, empresa (opcional) y qué servicio le interesa
+- ANTES de llamar a agendar_reunion, SIEMPRE tenés que tener confirmados: nombre completo real del cliente, fecha y hora, y servicio de interés. Si falta cualquiera de estos datos, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]", "[Tu Empresa]" o texto de ejemplo.
+- Si el cliente solo dice una hora sin dar su nombre, preguntale el nombre ANTES de confirmar la reunión.
+- No agendés dos reuniones seguidas para el mismo cliente en el mismo día a menos que lo pida explícitamente.
 - Las reuniones son de 9:00 a 18:00 hs, cada 30 minutos
 - Si preguntan por precios, explicá que los presupuestos son personalizados y los cotizamos en la reunión
 - Siempre invitá a agendar una reunión de consultoría gratuita
