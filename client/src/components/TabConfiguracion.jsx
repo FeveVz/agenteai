@@ -33,7 +33,7 @@ export default function TabConfiguracion() {
   const [formulario, setFormulario] = useState({
     nombre_agencia: '', slogan: '', direccion: '', telefono: '',
     email: '', horarios: '', servicios: '', sobre_agencia: '',
-    casos_exito: '', redes_sociales: '', preguntas_frecuentes: '',
+    casos_exito: '', redes_sociales: '', preguntas_frecuentes: '', reglas_agente: '',
   });
 
   const { data, isLoading } = useQuery({ queryKey: ['configuracion'], queryFn: obtenerConfiguracion });
@@ -53,6 +53,7 @@ export default function TabConfiguracion() {
         casos_exito: c.casos_exito || '',
         redes_sociales: c.redes_sociales || '',
         preguntas_frecuentes: c.preguntas_frecuentes || '',
+        reglas_agente: c.reglas_agente || '',
       });
     }
   }, [data]);
@@ -138,6 +139,37 @@ export default function TabConfiguracion() {
                 <strong>Para desarrollo local:</strong> usá <code className="bg-gray-200 px-1.5 py-0.5 rounded font-mono">ngrok http 3001</code> para exponer el servidor.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reglas fundamentales del agente */}
+      <div className="bg-white rounded-2xl border border-sky-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-sky-100 bg-black">
+          <h2 className="text-base font-bold text-white">Reglas fundamentales de Valeria</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Estas reglas tienen prioridad máxima — definen qué puede y qué no puede hacer Valeria.</p>
+        </div>
+        <div className="p-6">
+          <TextareaField
+            label=""
+            name="reglas_agente"
+            value={formulario.reglas_agente}
+            onChange={manejarCambio}
+            placeholder={`Ejemplos de reglas que podés definir:\n- Solo responder temas relacionados a marketing digital y servicios de Suggestion. Si preguntan sobre otros temas, redirigir amablemente.\n- Tono: profesional pero cercano, nunca informal en exceso.\n- No dar precios específicos bajo ninguna circunstancia — siempre derivar a la reunión.\n- No hablar negativamente de la competencia.\n- Nunca inventar datos, clientes o resultados que no estén en el contexto.`}
+            rows={7}
+          />
+          <p className="text-xs text-gray-400 mt-3">
+            Escribí una regla por línea. Podés ser tan específico como necesitás — Valeria las va a respetar en cada conversación.
+          </p>
+          <div className="flex justify-end mt-4">
+            <button
+              type="button"
+              onClick={() => mutacion.mutate(formulario)}
+              disabled={mutacion.isPending}
+              className="bg-black hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm"
+            >
+              {mutacion.isPending ? 'Guardando...' : 'Guardar Reglas'}
+            </button>
           </div>
         </div>
       </div>

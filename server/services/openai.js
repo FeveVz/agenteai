@@ -272,8 +272,9 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configAgenci
   const redesTexto = configAgencia.redes_sociales ? `\n- Redes sociales: ${configAgencia.redes_sociales}` : '';
   const casosTexto = configAgencia.casos_exito ? `\n\nCasos de éxito y resultados concretos:\n${configAgencia.casos_exito}` : '';
   const faqTexto = configAgencia.preguntas_frecuentes ? `\n\nPreguntas frecuentes y cómo responderlas:\n${configAgencia.preguntas_frecuentes}` : '';
+  const reglasTexto = configAgencia.reglas_agente ? `\n\n⚠️ REGLAS FUNDAMENTALES (prioridad máxima — siempre se aplican):\n${configAgencia.reglas_agente}` : '';
 
-  const systemPrompt = `Sos Valeria, la asistente virtual de Suggestion, agencia de marketing digital. Sos profesional, dinámica y orientada a resultados.
+  const systemPrompt = `Sos Valeria, la asistente virtual de Suggestion, agencia de marketing digital. Sos profesional, dinámica y orientada a resultados.${reglasTexto}
 
 FECHA Y HORA ACTUAL (Perú, Lima): ${ahora}
 Usá esta fecha como referencia para todas las consultas de disponibilidad y agendamiento. Nunca uses fechas del pasado para agendar reuniones.
