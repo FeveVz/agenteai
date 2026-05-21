@@ -1,7 +1,7 @@
 const express = require('express');
 const { obtenerSupabase } = require('../db');
 const { procesarMensajeConIA } = require('../services/openai');
-const { generarRespuestaTwiML, generarRespuestaError } = require('../services/twilio');
+const { generarRespuestaTwiML, TWIML_VACIO, enviarMensajeWhatsApp, generarRespuestaError } = require('../services/twilio');
 
 const router = express.Router();
 
@@ -67,41 +67,46 @@ router.post('/whatsapp', async (req, res) => {
 
     const historial = (historialRaw || []).reverse().slice(0, -1);
 
-    const TIMEOUT_TWILIO = 10000;
-    let respuestaIA;
-    let timedOut = false;
+    const TIMEOUT_MS = 9000;
+    let twilioRespondido = false;
 
+    const responderATwilio = (twiml) => {
+      if (!twilioRespondido) {
+        twilioRespondido = true;
+        res.set('Content-Type', 'text/xml');
+        res.send(twiml);
+      }
+    };
+
+    // Timer: si OpenAI no responde en 9s, liberar Twilio con TwiML vacío
+    const timer = setTimeout(() => {
+      console.warn(`[Webhook] Timeout 9s — liberando Twilio, continuando en background`);
+      responderATwilio(TWIML_VACIO);
+    }, TIMEOUT_MS);
+
+    let respuestaIA;
     try {
-      const iaPromise = procesarMensajeConIA(
+      respuestaIA = await procesarMensajeConIA(
         numeroTelefono,
         contenidoMensaje,
         configAgencia || {},
         historial
       );
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_TWILIO)
-      );
-      respuestaIA = await Promise.race([iaPromise, timeoutPromise]);
     } catch (errorIA) {
-      if (errorIA.message === 'TIMEOUT') {
-        console.warn('[Webhook] OpenAI tardó más de 10s — respondiendo a Twilio sin esperar');
-        timedOut = true;
-        res.set('Content-Type', 'text/xml');
-        res.send(generarRespuestaTwiML('Dame un segundo, estoy procesando tu consulta... ✍️'));
-      } else {
-        console.error('[Webhook] Error OpenAI:', errorIA.message);
-        await supabase.from('mensajes_whatsapp').insert({
-          numero_telefono: numeroTelefono,
-          contenido_mensaje: '[Error: falla de OpenAI]',
-          remitente: 'asistente',
-          tipo_mensaje: 'texto',
-          procesado: 0,
-        });
-        res.set('Content-Type', 'text/xml');
-        return res.send(generarRespuestaError(configAgencia?.telefono));
-      }
+      clearTimeout(timer);
+      console.error('[Webhook] Error OpenAI:', errorIA.message);
+      await supabase.from('mensajes_whatsapp').insert({
+        numero_telefono: numeroTelefono,
+        contenido_mensaje: '[Error: falla de OpenAI]',
+        remitente: 'asistente',
+        tipo_mensaje: 'texto',
+        procesado: 0,
+      });
+      responderATwilio(generarRespuestaError(configAgencia?.telefono));
       return;
     }
+
+    clearTimeout(timer);
 
     await supabase.from('mensajes_whatsapp').insert({
       numero_telefono: numeroTelefono,
@@ -111,12 +116,14 @@ router.post('/whatsapp', async (req, res) => {
       procesado: 1,
     });
 
-    if (!timedOut) {
-      console.log(`[Webhook] Respuesta enviada a ${numeroTelefono}`);
-      res.set('Content-Type', 'text/xml');
-      res.send(generarRespuestaTwiML(respuestaIA));
+    if (!twilioRespondido) {
+      // Respuesta rápida: enviar por TwiML normalmente
+      console.log(`[Webhook] Respuesta rápida vía TwiML a ${numeroTelefono}`);
+      responderATwilio(generarRespuestaTwiML(respuestaIA));
     } else {
-      console.log(`[Webhook] Respuesta guardada en Supabase (Twilio ya respondió con mensaje de espera)`);
+      // Respuesta lenta: Twilio ya fue liberado, enviar por REST API
+      console.log(`[Webhook] Respuesta tardía vía REST API a ${numeroTelefono}`);
+      await enviarMensajeWhatsApp(numeroTelefono, respuestaIA);
     }
 
   } catch (error) {
