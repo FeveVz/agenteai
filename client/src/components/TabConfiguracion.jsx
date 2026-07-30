@@ -9,7 +9,7 @@ function InputField({ label, name, value, onChange, placeholder, type = 'text' }
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       <input
         type={type} name={name} value={value || ''} onChange={onChange} placeholder={placeholder}
-        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ceinys-orange focus:border-transparent transition-all"
       />
     </div>
   );
@@ -21,7 +21,7 @@ function TextareaField({ label, name, value, onChange, placeholder, rows = 3 }) 
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       <textarea
         name={name} value={value || ''} onChange={onChange} placeholder={placeholder} rows={rows}
-        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all resize-none"
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ceinys-orange focus:border-transparent transition-all resize-none"
       />
     </div>
   );
@@ -88,7 +88,7 @@ export default function TabConfiguracion() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-48 gap-3 text-gray-400">
-        <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
         <span className="text-sm">Cargando configuración...</span>
       </div>
     );
@@ -144,8 +144,8 @@ export default function TabConfiguracion() {
       </div>
 
       {/* Reglas fundamentales del agente */}
-      <div className="bg-white rounded-2xl border border-sky-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-sky-100 bg-black">
+      <div className="bg-white rounded-2xl border border-orange-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-orange-100 bg-black">
           <h2 className="text-base font-bold text-white">Reglas fundamentales de Valeria</h2>
           <p className="text-xs text-gray-400 mt-0.5">Estas reglas tienen prioridad máxima — definen qué puede y qué no puede hacer Valeria.</p>
         </div>
@@ -155,7 +155,7 @@ export default function TabConfiguracion() {
             name="reglas_agente"
             value={formulario.reglas_agente}
             onChange={manejarCambio}
-            placeholder={`Ejemplos de reglas que podés definir:\n- Solo responder temas relacionados a marketing digital y servicios de Suggestion. Si preguntan sobre otros temas, redirigir amablemente.\n- Tono: profesional pero cercano, nunca informal en exceso.\n- No dar precios específicos bajo ninguna circunstancia — siempre derivar a la reunión.\n- No hablar negativamente de la competencia.\n- Nunca inventar datos, clientes o resultados que no estén en el contexto.`}
+            placeholder={`Ejemplos de reglas que podés definir:\n- Solo hablar de Ceinys y sus proyectos inmobiliarios. Si preguntan otro tema, redirigir con amabilidad.\n- NUNCA inventar precios, metrajes ni condiciones de financiamiento. Si el dato no está cargado, derivar a un asesor.\n- El objetivo de cada conversación es agendar una visita al proyecto.\n- Nunca prometer separación, descuento ni reserva de lote.\n- No hablar negativamente de otras inmobiliarias.`}
             rows={7}
           />
           <p className="text-xs text-gray-400 mt-3">
@@ -177,45 +177,45 @@ export default function TabConfiguracion() {
       {/* Formulario de configuración */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-black">
-          <h2 className="text-base font-bold text-white">Datos de Suggestion</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Valeria usa esta información para responder consultas de los prospectos.</p>
+          <h2 className="text-base font-bold text-white">Datos de Ceinys</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Valeria usa esta información para responder a los interesados. Lo que dejes vacío, no lo inventa: deriva al asesor.</p>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); mutacion.mutate(formulario); }} className="p-6 space-y-5">
           <div className="grid sm:grid-cols-2 gap-5">
-            <InputField label="Nombre de la agencia" name="nombre_agencia" value={formulario.nombre_agencia} onChange={manejarCambio} placeholder="Suggestion" />
-            <InputField label="Slogan" name="slogan" value={formulario.slogan} onChange={manejarCambio} placeholder="Consigue lo posible haciendo lo imposible" />
+            <InputField label="Nombre de la empresa" name="nombre_agencia" value={formulario.nombre_agencia} onChange={manejarCambio} placeholder="Ceinys" />
+            <InputField label="Slogan / descriptor" name="slogan" value={formulario.slogan} onChange={manejarCambio} placeholder="Constructora e Inmobiliaria" />
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
-            <InputField label="Teléfono / WhatsApp" name="telefono" value={formulario.telefono} onChange={manejarCambio} placeholder="+51 937770159" type="tel" />
-            <InputField label="Email" name="email" value={formulario.email} onChange={manejarCambio} placeholder="suggesion.mk@gmail.com" type="email" />
+            <InputField label="Teléfono / WhatsApp" name="telefono" value={formulario.telefono} onChange={manejarCambio} placeholder="+51 ..." type="tel" />
+            <InputField label="Email" name="email" value={formulario.email} onChange={manejarCambio} placeholder="ventas@ceinys.com" type="email" />
           </div>
-          <InputField label="Dirección" name="direccion" value={formulario.direccion} onChange={manejarCambio} placeholder="Residencial Jardin C4, Urb San Jose, Perú" />
+          <InputField label="Dirección de la oficina" name="direccion" value={formulario.direccion} onChange={manejarCambio} placeholder="Av. ..., distrito, ciudad" />
           <TextareaField label="Horarios de atención" name="horarios" value={formulario.horarios} onChange={manejarCambio} placeholder="Lunes a Viernes: 9:00 - 18:00 hs&#10;Sábados: 9:00 - 13:00 hs" rows={2} />
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">Servicios (separados por coma)</label>
+            <label className="block text-sm font-medium text-gray-700">Qué ofrecemos (separado por coma)</label>
             <textarea
               name="servicios" value={formulario.servicios} onChange={manejarCambio} rows={2}
-              placeholder="Marketing Digital, Redes Sociales, Meta Ads, SEO, Branding..."
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all resize-none"
+              placeholder="Venta de lotes, Venta de viviendas, Financiamiento directo, Asesoría de inversión inmobiliaria..."
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange transition-all resize-none"
             />
           </div>
-          <TextareaField label="Sobre la agencia" name="sobre_agencia" value={formulario.sobre_agencia} onChange={manejarCambio} placeholder="Descripción de Suggestion, logros, clientes..." rows={4} />
+          <TextareaField label="Sobre la empresa" name="sobre_agencia" value={formulario.sobre_agencia} onChange={manejarCambio} placeholder="Años en el mercado, respaldo legal, cuántas familias ya compraron..." rows={4} />
           <TextareaField
-            label="Casos de éxito y resultados"
+            label="Respaldo y logros"
             name="casos_exito"
             value={formulario.casos_exito}
             onChange={manejarCambio}
-            placeholder={`Ejemplos concretos que Valeria puede mencionar:\n• Mazda Perú: +45% en leads calificados en 3 meses con Meta Ads\n• Repsol: rediseño de marca + sitio web con 80K visitas/mes\n• Restaurante La Feria: de 0 a 12K seguidores en Instagram en 60 días`}
+            placeholder={`Datos concretos que Valeria puede mencionar:\n• X familias ya viviendo en Altos de Sacta\n• Todos los lotes con partida registral independiente en SUNARP\n• X años desarrollando proyectos en la región`}
             rows={5}
           />
-          <InputField label="Redes sociales" name="redes_sociales" value={formulario.redes_sociales} onChange={manejarCambio} placeholder="Instagram: @suggestion.mk | LinkedIn: linkedin.com/company/suggestion | TikTok: @suggestion.mk" />
+          <InputField label="Redes sociales" name="redes_sociales" value={formulario.redes_sociales} onChange={manejarCambio} placeholder="Instagram: @ceinys | Facebook: facebook.com/ceinys | TikTok: @ceinys" />
           <TextareaField
             label="Preguntas frecuentes (FAQ)"
             name="preguntas_frecuentes"
             value={formulario.preguntas_frecuentes}
             onChange={manejarCambio}
-            placeholder={`Preguntas y respuestas que Valeria debe saber:\nP: ¿Cuánto cuesta un servicio de redes sociales?\nR: Los precios son personalizados según objetivos, pero tenemos planes desde S/ 800/mes.\n\nP: ¿Trabajan con empresas pequeñas?\nR: Sí, tenemos paquetes para emprendedores y pymes.`}
+            placeholder={`Preguntas y respuestas que Valeria debe saber:\nP: ¿Los lotes tienen título de propiedad?\nR: Sí, cada lote se entrega con partida registral independiente en SUNARP.\n\nP: ¿Puedo pagar en cuotas?\nR: Sí, tenemos financiamiento directo. Un asesor te arma el plan en la visita.`}
             rows={7}
           />
 

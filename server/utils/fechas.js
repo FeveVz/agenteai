@@ -30,7 +30,7 @@ function formatearHora(fechaISO) {
 }
 
 /**
- * Genera todos los horarios disponibles en un día (9:00 a 18:00, cada 30 min)
+ * Genera todos los horarios de visita de un día (9:00 a 18:00, cada 30 min)
  */
 function generarHorariosDelDia() {
   const horarios = [];
@@ -42,18 +42,18 @@ function generarHorariosDelDia() {
 }
 
 /**
- * Extrae los horarios ocupados de una lista de turnos
+ * Extrae los horarios ocupados de una lista de visitas
  */
-function extraerHorariosOcupados(turnos) {
-  return turnos.map(t => formatearHora(t.fecha_reunion || t.fecha_turno));
+function extraerHorariosOcupados(visitas) {
+  return visitas.map(v => formatearHora(v.fecha_visita));
 }
 
 /**
- * Devuelve los horarios libres para una fecha dado un array de turnos
+ * Devuelve los horarios libres para una fecha dado un array de visitas
  */
-function calcularHorariosLibres(turnos) {
+function calcularHorariosLibres(visitas) {
   const todos = generarHorariosDelDia();
-  const ocupados = extraerHorariosOcupados(turnos);
+  const ocupados = extraerHorariosOcupados(visitas);
   return todos.filter(h => !ocupados.includes(h));
 }
 

@@ -1,9 +1,6 @@
 node_modules/
 client/node_modules/
 .env
-clinica.db
-clinica.db-shm
-clinica.db-wal
 client/dist/
 *.log
 .vercel/

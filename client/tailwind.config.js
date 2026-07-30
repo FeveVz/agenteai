@@ -5,9 +5,19 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        // Debe coincidir con la fuente que carga client/index.html
+        sans: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // Paleta de marca Ceinys, tomada del logo oficial
+        ceinys: {
+          orange: '#F5851F',
+          'orange-light': '#FF9F45',
+          'orange-dark': '#D96F10',
+          blue: '#29A9E0',
+          'blue-light': '#5CC1EC',
+          gray: '#414042',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

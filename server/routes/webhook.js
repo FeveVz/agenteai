@@ -52,7 +52,7 @@ router.post('/whatsapp', async (req, res) => {
       tipo_mensaje: 'texto',
     });
 
-    const { data: configAgencia } = await supabase
+    const { data: configEmpresa } = await supabase
       .from('configuracion_agencia')
       .select('*')
       .limit(1)
@@ -89,7 +89,7 @@ router.post('/whatsapp', async (req, res) => {
       respuestaIA = await procesarMensajeConIA(
         numeroTelefono,
         contenidoMensaje,
-        configAgencia || {},
+        configEmpresa || {},
         historial
       );
     } catch (errorIA) {
@@ -102,7 +102,7 @@ router.post('/whatsapp', async (req, res) => {
         tipo_mensaje: 'texto',
         procesado: 0,
       });
-      responderATwilio(generarRespuestaError(configAgencia?.telefono));
+      responderATwilio(generarRespuestaError(configEmpresa?.telefono));
       return;
     }
 

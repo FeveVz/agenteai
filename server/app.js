@@ -4,7 +4,8 @@ const path = require('path');
 
 const webhookRouter = require('./routes/webhook');
 const mensajesRouter = require('./routes/mensajes');
-const reunionesRouter = require('./routes/turnos');
+const visitasRouter = require('./routes/visitas');
+const proyectosRouter = require('./routes/proyectos');
 const configuracionRouter = require('./routes/configuracion');
 
 const app = express();
@@ -20,11 +21,12 @@ app.use((req, _res, next) => {
 
 app.use('/api/webhook', webhookRouter);
 app.use('/api/mensajes', mensajesRouter);
-app.use('/api/reuniones', reunionesRouter);
+app.use('/api/visitas', visitasRouter);
+app.use('/api/proyectos', proyectosRouter);
 app.use('/api/configuracion', configuracionRouter);
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, agencia: 'Suggestion', timestamp: new Date().toISOString() });
+  res.json({ ok: true, empresa: 'Ceinys', timestamp: new Date().toISOString() });
 });
 
 const distPath = path.join(__dirname, '..', 'client', 'dist');

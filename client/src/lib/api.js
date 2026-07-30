@@ -12,12 +12,32 @@ export async function obtenerMensajes() {
   return manejarRespuesta(await fetch(`${BASE_URL}/mensajes`));
 }
 
-export async function obtenerReuniones() {
-  return manejarRespuesta(await fetch(`${BASE_URL}/reuniones`));
+export async function obtenerVisitas() {
+  return manejarRespuesta(await fetch(`${BASE_URL}/visitas`));
 }
 
-export async function obtenerReunionesPorFecha(fecha) {
-  return manejarRespuesta(await fetch(`${BASE_URL}/reuniones/${fecha}`));
+export async function obtenerVisitasPorFecha(fecha) {
+  return manejarRespuesta(await fetch(`${BASE_URL}/visitas/${fecha}`));
+}
+
+export async function obtenerProyectos() {
+  return manejarRespuesta(await fetch(`${BASE_URL}/proyectos`));
+}
+
+export async function actualizarProyecto({ id, ...datos }) {
+  return manejarRespuesta(await fetch(`${BASE_URL}/proyectos/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  }));
+}
+
+export async function crearProyecto(datos) {
+  return manejarRespuesta(await fetch(`${BASE_URL}/proyectos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  }));
 }
 
 export async function obtenerConfiguracion() {

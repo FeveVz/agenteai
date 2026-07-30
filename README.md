@@ -1,143 +1,138 @@
-# 🦷 Sistema de Turnos — Clínica Dental con WhatsApp + IA
+# 🏗️ Ceinys — Agente IA de WhatsApp
 
-Sistema completo de gestión de turnos para clínicas dentales. Incluye un agente de IA (Sarah) que actúa como recepcionista virtual por WhatsApp y un dashboard web para el personal de la clínica.
+Agente de IA para **Ceinys, Constructora e Inmobiliaria**. Valeria, la asesora virtual, atiende
+por WhatsApp a los interesados en los proyectos, responde sobre cada uno y **agenda visitas**.
+Incluye un panel web para que el equipo comercial vea los mensajes, gestione las visitas y cargue
+los datos de cada proyecto.
 
 ## Stack tecnológico
 
-- **Backend:** Node.js + Express
-- **Base de datos:** SQLite (via better-sqlite3) — sin servicios externos
+- **Backend:** Node.js + Express (desplegado como Serverless Function en Vercel)
+- **Base de datos:** Supabase (PostgreSQL)
 - **Frontend:** React + Vite + Tailwind CSS
-- **WhatsApp:** Twilio (webhook)
+- **WhatsApp:** Twilio (webhook + REST API para respuestas lentas)
 - **IA:** OpenAI GPT-4o con function calling
 
 ---
 
-## Requisitos previos
+## Cómo está armado
 
-- Node.js 18 o superior
-- Una cuenta de [Twilio](https://www.twilio.com/) con WhatsApp Sandbox habilitado
-- Una API key de [OpenAI](https://platform.openai.com/)
+```
+agenteai/
+├── api/
+│   └── index.js               ← Entrada de Vercel: monta server/app.js
+├── server/
+│   ├── app.js                 ← App Express (rutas + estáticos)
+│   ├── index.js               ← Arranque local (no lo usa Vercel)
+│   ├── db.js                  ← Cliente de Supabase
+│   ├── routes/
+│   │   ├── webhook.js         ← POST del webhook de Twilio
+│   │   ├── mensajes.js        ← Historial de WhatsApp
+│   │   ├── visitas.js         ← Visitas agendadas
+│   │   ├── proyectos.js       ← Catálogo de proyectos (GET/POST/PUT)
+│   │   └── configuracion.js   ← Datos de la empresa
+│   ├── services/
+│   │   ├── openai.js          ← Valeria: system prompt + herramientas
+│   │   └── twilio.js          ← TwiML y envío vía REST API
+│   └── utils/fechas.js        ← Fechas y slots en español
+├── client/src/
+│   ├── pages/
+│   │   ├── Landing.jsx        ← Página pública
+│   │   └── Dashboard.jsx      ← Panel (4 pestañas)
+│   └── components/
+│       ├── TabMensajes.jsx
+│       ├── TabVisitas.jsx     → CalendarioVisitas / ListaVisitas
+│       ├── TabProyectos.jsx   ← Carga de datos de cada proyecto
+│       └── TabConfiguracion.jsx
+├── supabase-schema.sql            ← Instalación limpia
+└── supabase-migration-ceinys.sql  ← Migración desde el esquema anterior
+```
+
+### Dónde vive cada cosa
+
+Esto es lo más importante de entender antes de editar:
+
+| Qué | Dónde se cambia |
+|---|---|
+| Personalidad y reglas de Valeria | `server/services/openai.js` (prompt) + campo `reglas_agente` en la BD |
+| Nombre, teléfono, email, horarios | **Base de datos**, vía panel → Configuración |
+| Proyectos y sus precios/áreas | **Base de datos**, vía panel → Proyectos |
+| Diseño de la landing | `client/src/pages/Landing.jsx` (hardcodeado) |
+
+Los datos de la empresa **no están en el código**: se leen de la tabla `configuracion_agencia`
+en cada mensaje. Cambiar el código no cambia lo que Valeria dice sobre Ceinys.
 
 ---
 
-## Instalación
+## Base de datos
 
-### 1. Instalar dependencias
+### Instalación nueva
 
-```bash
-cd clinica-dental
-npm run setup
-```
+Pegar `supabase-schema.sql` en **Supabase → SQL Editor → Run**.
 
-Este comando instala las dependencias del servidor y del cliente.
+### Migrar desde el esquema anterior
 
-### 2. Configurar variables de entorno
+Si la base ya venía del esquema viejo (`reuniones`, `tipo_servicio`, `empresa`), correr
+`supabase-migration-ceinys.sql`. Es idempotente: se puede ejecutar varias veces sin romper nada.
 
-Copiá el archivo de ejemplo y completá tus credenciales:
+> ⚠️ Correr la migración **antes** de desplegar el código. El código nuevo lee las tablas
+> `visitas` y `proyectos`; si no existen, la API responde 500.
 
-```bash
-cp .env.example .env
-```
+### Tablas
 
-Abrí el archivo `.env` y completá:
+| Tabla | Para qué |
+|---|---|
+| `mensajes_whatsapp` | Historial de la conversación (memoria de los últimos 20 mensajes) |
+| `visitas` | Visitas agendadas a los proyectos |
+| `proyectos` | Catálogo. Valeria solo menciona los que están acá con `activo = true` |
+| `configuracion_agencia` | Datos de Ceinys y reglas del agente |
+
+---
+
+## Variables de entorno
+
+Copiar `.env.example` a `.env` y completar:
 
 ```env
-OPENAI_API_KEY=sk-proj-tu_api_key_aqui
+OPENAI_API_KEY=sk-proj-...
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_KEY=...
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 PORT=3001
 ```
 
+Las de Twilio hacen falta solo para las respuestas asíncronas (ver más abajo). En Vercel se
+configuran en **Project Settings → Environment Variables**.
+
 ---
 
-## Levantar en desarrollo
+## Desarrollo local
 
 ```bash
+npm run setup
 npm run dev
 ```
 
-Este comando inicia simultáneamente:
-- **Backend** en `http://localhost:3001`
-- **Frontend** en `http://localhost:5173`
+Levanta el backend en `http://localhost:3001` y el frontend en `http://localhost:5173`.
 
----
+### Conectar Twilio
 
-## Configurar Twilio WhatsApp
-
-Para que los mensajes de WhatsApp lleguen a tu servidor local, necesitás exponer tu servidor a internet.
-
-### Opción 1: ngrok (recomendado para desarrollo)
-
-1. Instalá ngrok: https://ngrok.com/download
-2. Ejecutá en una terminal separada:
-   ```bash
-   ngrok http 3001
-   ```
-3. Copiá la URL HTTPS que genera ngrok (ej: `https://abc123.ngrok-free.app`)
-
-### Configurar el webhook en Twilio
-
-1. Ingresá a [Twilio Console](https://console.twilio.com/)
-2. Navegá a **Messaging → WhatsApp → Sandbox**
-3. En el campo **"When a message comes in"**, pegá:
-   ```
-   https://TU-URL-NGROK/api/webhook/whatsapp
-   ```
-4. Asegurate de seleccionar **HTTP POST**
-5. Hacé click en **Save**
-
-### Probar la conexión
-
-Enviá un mensaje al número de WhatsApp Sandbox de Twilio y Sarah te debería responder.
-
----
-
-## Build para producción
+El webhook tiene que ser accesible desde internet:
 
 ```bash
-npm run build
+ngrok http 3001
 ```
 
-Esto compila el frontend de React. Luego podés iniciar el servidor en modo producción:
-
-```bash
-npm start
-```
-
-El servidor Express servirá automáticamente los archivos estáticos del frontend en `http://localhost:3001`.
-
----
-
-## Estructura del proyecto
+En **Twilio Console → Messaging → WhatsApp Sandbox**, en *"When a message comes in"*, pegar:
 
 ```
-clinica-dental/
-├── server/
-│   ├── index.js              ← Express server principal
-│   ├── db.js                 ← Inicialización SQLite + esquema
-│   ├── routes/
-│   │   ├── webhook.js        ← Endpoint Twilio WhatsApp
-│   │   ├── mensajes.js       ← API REST mensajes
-│   │   ├── turnos.js         ← API REST turnos
-│   │   └── configuracion.js  ← API REST config clínica
-│   ├── services/
-│   │   ├── openai.js         ← Agente IA con function calling
-│   │   └── twilio.js         ← Formateo respuestas TwiML
-│   └── utils/
-│       └── fechas.js         ← Helpers de fecha en español
-├── client/
-│   └── src/
-│       ├── pages/
-│       │   ├── Landing.jsx   ← Página de inicio
-│       │   └── Dashboard.jsx ← Panel de administración
-│       └── components/
-│           ├── TabMensajes.jsx
-│           ├── TabTurnos.jsx
-│           ├── TabConfiguracion.jsx
-│           ├── CalendarioTurnos.jsx
-│           └── ListaTurnos.jsx
-├── clinica.db                ← Base de datos SQLite (se crea al iniciar)
-├── .env                      ← Variables de entorno (no commitear)
-└── README.md
+https://TU-URL-NGROK/api/webhook/whatsapp
 ```
+
+con método **HTTP POST**. En producción la URL es
+`https://TU-DOMINIO/api/webhook/whatsapp` (el panel la muestra y la copia en Configuración).
 
 ---
 
@@ -146,31 +141,43 @@ clinica-dental/
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/api/webhook/whatsapp` | Webhook de Twilio |
-| GET | `/api/mensajes` | Últimos 50 mensajes |
-| GET | `/api/turnos` | Todos los turnos |
-| GET | `/api/turnos/:fecha` | Turnos de una fecha (YYYY-MM-DD) |
-| GET | `/api/configuracion` | Config de la clínica |
-| PUT | `/api/configuracion` | Actualizar config |
+| GET | `/api/mensajes` | Últimos mensajes |
+| GET | `/api/visitas` | Todas las visitas |
+| GET | `/api/visitas/:fecha` | Visitas de una fecha (`YYYY-MM-DD`) |
+| GET | `/api/proyectos` | Catálogo de proyectos |
+| POST | `/api/proyectos` | Crear un proyecto |
+| PUT | `/api/proyectos/:id` | Actualizar un proyecto |
+| GET | `/api/configuracion` | Datos de la empresa |
+| PUT | `/api/configuracion` | Actualizar datos de la empresa |
+| GET | `/api/health` | Estado del servicio |
 
 ---
 
-## Herramientas de la IA (function calling)
+## Herramientas de Valeria (function calling)
 
-Sarah puede ejecutar estas acciones de forma autónoma:
-
-| Herramienta | Descripción |
-|-------------|-------------|
-| `consultar_disponibilidad` | Ver horarios libres en una fecha |
-| `ver_turnos_paciente` | Consultar turnos de un paciente |
-| `agendar_turno` | Crear un nuevo turno |
-| `cancelar_turno` | Cancelar un turno existente |
-| `reprogramar_turno` | Cambiar fecha/hora de un turno |
+| Herramienta | Qué hace |
+|-------------|----------|
+| `consultar_proyectos` | Trae el detalle real de los proyectos. Obligatoria antes de dar cualquier dato |
+| `consultar_disponibilidad` | Horarios libres de una fecha |
+| `ver_visitas_cliente` | Visitas activas de un número |
+| `agendar_visita` | Crea la visita (valida que el proyecto exista) |
+| `cancelar_visita` | Cancela una visita |
+| `reprogramar_visita` | Cambia fecha y hora |
 
 ---
 
 ## Notas importantes
 
-- La base de datos SQLite (`clinica.db`) se crea automáticamente al iniciar el servidor.
-- El rate limiting limita a 30 mensajes por minuto por número de teléfono.
-- En el dashboard, los mensajes y turnos se actualizan automáticamente cada 5 segundos.
-- El agente tiene memoria conversacional de los últimos 20 mensajes por número.
+- **Valeria no inventa datos.** Si un proyecto no tiene precio, área o ubicación cargados,
+  `consultar_proyectos` devuelve `sin_detalle_cargado` y el prompt le exige derivar al asesor.
+  Lo mismo con el teléfono, email y dirección de la empresa: si están vacíos en la BD, no los
+  improvisa. Es deliberado — un dato inventado en una compra inmobiliaria es un problema real.
+- **Solo agenda proyectos que existen.** `agendar_visita` valida el nombre contra la tabla
+  `proyectos` y, si no coincide, le devuelve al modelo la lista de proyectos válidos.
+- **Timeout de Twilio.** Twilio corta el webhook a los ~10s. A los 9s el servidor responde con
+  TwiML vacío y, cuando OpenAI termina, manda la respuesta por la REST API. Por eso hacen falta
+  las credenciales de Twilio: sin ellas, las respuestas lentas se pierden.
+- **Visitas de 9:00 a 18:00, cada 30 minutos.** Un horario ocupado bloquea a todos los clientes,
+  no solo al mismo proyecto — pensado para no sobrecargar al asesor que recibe.
+- **Rate limit:** 30 mensajes por minuto por número.
+- El panel refresca mensajes y visitas cada 5 segundos.

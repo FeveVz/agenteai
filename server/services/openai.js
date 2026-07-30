@@ -17,12 +17,26 @@ const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
-      name: 'consultar_disponibilidad',
-      description: 'Consulta los horarios disponibles para una reunión en una fecha específica.',
+      name: 'consultar_proyectos',
+      description: 'Devuelve el detalle de los proyectos inmobiliarios de Ceinys (ubicación, tipo, precios, áreas, financiamiento). Usar SIEMPRE antes de dar cualquier dato concreto sobre un proyecto. Si se pasa "nombre", devuelve solo ese proyecto.',
       parameters: {
         type: 'object',
         properties: {
-          fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Ej: "2026-03-22"' },
+          nombre: { type: 'string', description: 'Nombre del proyecto a consultar. Omitir para traer todos. Ej: "Altos de Sacta"' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consultar_disponibilidad',
+      description: 'Consulta los horarios disponibles para agendar una visita en una fecha específica.',
+      parameters: {
+        type: 'object',
+        properties: {
+          fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Ej: "2026-08-14"' },
         },
         required: ['fecha'],
       },
@@ -31,8 +45,8 @@ const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
-      name: 'ver_reuniones_cliente',
-      description: 'Muestra las reuniones activas de un cliente dado su número de teléfono.',
+      name: 'ver_visitas_cliente',
+      description: 'Muestra las visitas activas de un cliente dado su número de teléfono.',
       parameters: {
         type: 'object',
         properties: {
@@ -45,48 +59,47 @@ const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
-      name: 'agendar_reunion',
-      description: 'Agenda una nueva reunión de consultoría o presentación de servicios.',
+      name: 'agendar_visita',
+      description: 'Agenda una visita guiada a uno de los proyectos de Ceinys.',
       parameters: {
         type: 'object',
         properties: {
           numero_telefono: { type: 'string' },
-          nombre_cliente: { type: 'string', description: 'Nombre completo del cliente o contacto.' },
-          empresa: { type: 'string', description: 'Empresa u organización del cliente (opcional).' },
-          fecha_reunion: { type: 'string', description: 'Formato ISO: "2026-03-22T14:30:00"' },
-          tipo_servicio: { type: 'string', description: 'Servicio de interés. Ej: "Consultoría de Marketing", "Auditoría de Redes Sociales"' },
-          notas: { type: 'string', description: 'Información adicional o necesidades específicas del cliente (opcional).' },
+          nombre_cliente: { type: 'string', description: 'Nombre completo real del cliente.' },
+          fecha_visita: { type: 'string', description: 'Formato ISO: "2026-08-14T10:30:00"' },
+          proyecto_interes: { type: 'string', description: 'Nombre exacto del proyecto que va a visitar. Debe ser uno de los proyectos reales de Ceinys.' },
+          notas: { type: 'string', description: 'Información adicional: cuántas personas van, si necesita movilidad, presupuesto aproximado, uso (vivienda o inversión). Opcional.' },
         },
-        required: ['numero_telefono', 'nombre_cliente', 'fecha_reunion', 'tipo_servicio'],
+        required: ['numero_telefono', 'nombre_cliente', 'fecha_visita', 'proyecto_interes'],
       },
     },
   },
   {
     type: 'function',
     function: {
-      name: 'cancelar_reunion',
-      description: 'Cancela una reunión existente dado su ID.',
+      name: 'cancelar_visita',
+      description: 'Cancela una visita existente dado su ID.',
       parameters: {
         type: 'object',
         properties: {
-          id_reunion: { type: 'integer' },
+          id_visita: { type: 'integer' },
         },
-        required: ['id_reunion'],
+        required: ['id_visita'],
       },
     },
   },
   {
     type: 'function',
     function: {
-      name: 'reprogramar_reunion',
-      description: 'Reprograma una reunión a una nueva fecha y hora.',
+      name: 'reprogramar_visita',
+      description: 'Reprograma una visita a una nueva fecha y hora.',
       parameters: {
         type: 'object',
         properties: {
-          id_reunion: { type: 'integer' },
-          nueva_fecha: { type: 'string', description: 'Formato ISO: "2026-03-25T10:00:00"' },
+          id_visita: { type: 'integer' },
+          nueva_fecha: { type: 'string', description: 'Formato ISO: "2026-08-16T15:00:00"' },
         },
-        required: ['id_reunion', 'nueva_fecha'],
+        required: ['id_visita', 'nueva_fecha'],
       },
     },
   },
@@ -98,20 +111,67 @@ async function ejecutarHerramienta(nombre, argumentos) {
   const supabase = obtenerSupabase();
 
   switch (nombre) {
+    case 'consultar_proyectos': {
+      const { nombre: nombreProyecto } = argumentos;
+
+      let consulta = supabase
+        .from('proyectos')
+        .select('*')
+        .eq('activo', true)
+        .order('orden', { ascending: true });
+
+      if (nombreProyecto) consulta = consulta.ilike('nombre', `%${nombreProyecto}%`);
+
+      const { data: proyectos, error } = await consulta;
+
+      if (error) return { error: `No pude consultar los proyectos: ${error.message}` };
+
+      if (!proyectos || proyectos.length === 0) {
+        return {
+          proyectos: [],
+          mensaje: nombreProyecto
+            ? `No encontré un proyecto llamado "${nombreProyecto}".`
+            : 'No hay proyectos cargados.',
+        };
+      }
+
+      // Solo devolvemos los campos con dato real. Los vacíos se omiten para que
+      // el modelo no tenga nada que "completar" por su cuenta.
+      const limpios = proyectos.map(p => {
+        const salida = { nombre: p.nombre };
+        if (p.ubicacion) salida.ubicacion = p.ubicacion;
+        if (p.tipo) salida.tipo = p.tipo;
+        if (p.descripcion) salida.descripcion = p.descripcion;
+        if (p.precio_desde) salida.precio_desde = p.precio_desde;
+        if (p.area_desde) salida.area_desde = p.area_desde;
+        if (p.caracteristicas) salida.caracteristicas = p.caracteristicas;
+        if (p.financiamiento) salida.financiamiento = p.financiamiento;
+
+        const camposCargados = Object.keys(salida).length - 1;
+        if (camposCargados === 0) {
+          salida.sin_detalle_cargado = true;
+          salida.nota = 'Este proyecto todavía no tiene datos cargados. NO inventes ubicación, precio ni área: ofrecé que un asesor le pase el detalle en la visita o por teléfono.';
+        }
+        return salida;
+      });
+
+      return { proyectos: limpios, total: limpios.length };
+    }
+
     case 'consultar_disponibilidad': {
       const { fecha } = argumentos;
-      const { data: reuniones } = await supabase
-        .from('reuniones')
+      const { data: visitas } = await supabase
+        .from('visitas')
         .select('*')
-        .gte('fecha_reunion', `${fecha}T00:00:00`)
-        .lte('fecha_reunion', `${fecha}T23:59:59`)
+        .gte('fecha_visita', `${fecha}T00:00:00`)
+        .lte('fecha_visita', `${fecha}T23:59:59`)
         .neq('estado', 'cancelada')
-        .order('fecha_reunion', { ascending: true });
+        .order('fecha_visita', { ascending: true });
 
-      const libres = calcularHorariosLibres(reuniones || []);
-      const ocupados = (reuniones || []).map(r => ({
-        hora: r.fecha_reunion.substring(11, 16),
-        servicio: r.tipo_servicio,
+      const libres = calcularHorariosLibres(visitas || []);
+      const ocupados = (visitas || []).map(v => ({
+        hora: v.fecha_visita.substring(11, 16),
+        proyecto: v.proyecto_interes,
       }));
 
       return {
@@ -126,58 +186,77 @@ async function ejecutarHerramienta(nombre, argumentos) {
       };
     }
 
-    case 'ver_reuniones_cliente': {
+    case 'ver_visitas_cliente': {
       const { numero_telefono } = argumentos;
-      const { data: reuniones } = await supabase
-        .from('reuniones')
+      const { data: visitas } = await supabase
+        .from('visitas')
         .select('*')
         .eq('numero_telefono', numero_telefono)
         .neq('estado', 'cancelada')
-        .order('fecha_reunion', { ascending: false })
+        .order('fecha_visita', { ascending: false })
         .limit(10);
 
-      if (!reuniones || reuniones.length === 0) {
-        return { reuniones: [], mensaje: 'No tenés reuniones agendadas.' };
+      if (!visitas || visitas.length === 0) {
+        return { visitas: [], mensaje: 'No tenés visitas agendadas.' };
       }
 
       return {
-        reuniones: reuniones.map(r => ({
-          id: r.id,
-          fecha: formatearFechaCompleta(r.fecha_reunion),
-          tipo_servicio: r.tipo_servicio,
-          empresa: r.empresa,
-          estado: r.estado,
-          notas: r.notas,
+        visitas: visitas.map(v => ({
+          id: v.id,
+          fecha: formatearFechaCompleta(v.fecha_visita),
+          proyecto_interes: v.proyecto_interes,
+          estado: v.estado,
+          notas: v.notas,
         })),
-        total: reuniones.length,
+        total: visitas.length,
       };
     }
 
-    case 'agendar_reunion': {
-      const { numero_telefono, nombre_cliente, empresa, fecha_reunion, tipo_servicio, notas } = argumentos;
+    case 'agendar_visita': {
+      const { numero_telefono, nombre_cliente, fecha_visita, proyecto_interes, notas } = argumentos;
+
+      // El proyecto tiene que existir de verdad
+      const { data: proyectoValido } = await supabase
+        .from('proyectos')
+        .select('nombre')
+        .ilike('nombre', proyecto_interes)
+        .eq('activo', true)
+        .limit(1);
+
+      if (!proyectoValido || proyectoValido.length === 0) {
+        const { data: disponibles } = await supabase
+          .from('proyectos')
+          .select('nombre')
+          .eq('activo', true)
+          .order('orden', { ascending: true });
+
+        return {
+          exito: false,
+          mensaje: `"${proyecto_interes}" no es un proyecto de Ceinys. Preguntale al cliente cuál de estos quiere visitar: ${(disponibles || []).map(p => p.nombre).join(', ')}.`,
+        };
+      }
 
       const { data: existente } = await supabase
-        .from('reuniones')
+        .from('visitas')
         .select('id')
-        .eq('fecha_reunion', fecha_reunion)
+        .eq('fecha_visita', fecha_visita)
         .neq('estado', 'cancelada')
         .limit(1);
 
       if (existente && existente.length > 0) {
         return {
           exito: false,
-          mensaje: `El horario ${formatearFechaCompleta(fecha_reunion)} ya está ocupado. ¿Te viene bien otro horario?`,
+          mensaje: `El horario ${formatearFechaCompleta(fecha_visita)} ya está ocupado. ¿Te viene bien otro horario?`,
         };
       }
 
-      const { data: nuevaReunion, error } = await supabase
-        .from('reuniones')
+      const { data: nuevaVisita, error } = await supabase
+        .from('visitas')
         .insert({
           numero_telefono,
           nombre_cliente,
-          empresa: empresa || null,
-          fecha_reunion,
-          tipo_servicio,
+          fecha_visita,
+          proyecto_interes: proyectoValido[0].nombre,
           estado: 'confirmada',
           notas: notas || null,
         })
@@ -188,51 +267,51 @@ async function ejecutarHerramienta(nombre, argumentos) {
 
       return {
         exito: true,
-        id_reunion: nuevaReunion.id,
-        mensaje: `✅ Reunión confirmada para ${nombre_cliente}${empresa ? ` (${empresa})` : ''} el ${formatearFechaCompleta(fecha_reunion)} — ${tipo_servicio}.`,
+        id_visita: nuevaVisita.id,
+        mensaje: `✅ Visita confirmada para ${nombre_cliente} el ${formatearFechaCompleta(fecha_visita)} — ${proyectoValido[0].nombre}.`,
       };
     }
 
-    case 'cancelar_reunion': {
-      const { id_reunion } = argumentos;
+    case 'cancelar_visita': {
+      const { id_visita } = argumentos;
 
-      const { data: reunion } = await supabase
-        .from('reuniones')
+      const { data: visita } = await supabase
+        .from('visitas')
         .select('*')
-        .eq('id', id_reunion)
+        .eq('id', id_visita)
         .single();
 
-      if (!reunion) {
-        return { exito: false, mensaje: `No encontré ninguna reunión con el ID ${id_reunion}.` };
+      if (!visita) {
+        return { exito: false, mensaje: `No encontré ninguna visita con el ID ${id_visita}.` };
       }
 
-      await supabase.from('reuniones').update({ estado: 'cancelada' }).eq('id', id_reunion);
+      await supabase.from('visitas').update({ estado: 'cancelada' }).eq('id', id_visita);
 
       return {
         exito: true,
-        mensaje: `✅ Reunión del ${formatearFechaCompleta(reunion.fecha_reunion)} cancelada correctamente.`,
+        mensaje: `✅ Visita del ${formatearFechaCompleta(visita.fecha_visita)} cancelada correctamente.`,
       };
     }
 
-    case 'reprogramar_reunion': {
-      const { id_reunion, nueva_fecha } = argumentos;
+    case 'reprogramar_visita': {
+      const { id_visita, nueva_fecha } = argumentos;
 
-      const { data: reunion } = await supabase
-        .from('reuniones')
+      const { data: visita } = await supabase
+        .from('visitas')
         .select('*')
-        .eq('id', id_reunion)
+        .eq('id', id_visita)
         .single();
 
-      if (!reunion) {
-        return { exito: false, mensaje: `No encontré ninguna reunión con el ID ${id_reunion}.` };
+      if (!visita) {
+        return { exito: false, mensaje: `No encontré ninguna visita con el ID ${id_visita}.` };
       }
 
       const { data: conflicto } = await supabase
-        .from('reuniones')
+        .from('visitas')
         .select('id')
-        .eq('fecha_reunion', nueva_fecha)
+        .eq('fecha_visita', nueva_fecha)
         .neq('estado', 'cancelada')
-        .neq('id', id_reunion)
+        .neq('id', id_visita)
         .limit(1);
 
       if (conflicto && conflicto.length > 0) {
@@ -242,11 +321,11 @@ async function ejecutarHerramienta(nombre, argumentos) {
         };
       }
 
-      await supabase.from('reuniones').update({ fecha_reunion: nueva_fecha }).eq('id', id_reunion);
+      await supabase.from('visitas').update({ fecha_visita: nueva_fecha }).eq('id', id_visita);
 
       return {
         exito: true,
-        mensaje: `✅ Reunión reprogramada para el ${formatearFechaCompleta(nueva_fecha)}.`,
+        mensaje: `✅ Visita reprogramada para el ${formatearFechaCompleta(nueva_fecha)}.`,
       };
     }
 
@@ -255,12 +334,39 @@ async function ejecutarHerramienta(nombre, argumentos) {
   }
 }
 
-// ── Función principal ─────────────────────────────────────────────────────────
+// ── Construcción del system prompt ────────────────────────────────────────────
 
-async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configAgencia, historial) {
-  const openai = obtenerClienteOpenAI();
+/**
+ * Devuelve los nombres de los proyectos activos. Se inyectan en el prompt para
+ * que Valeria nunca invente un proyecto que Ceinys no tiene.
+ */
+async function obtenerNombresProyectos() {
+  try {
+    const supabase = obtenerSupabase();
+    const { data } = await supabase
+      .from('proyectos')
+      .select('nombre')
+      .eq('activo', true)
+      .order('orden', { ascending: true });
+    return (data || []).map(p => p.nombre);
+  } catch (err) {
+    console.error('[OpenAI] No pude cargar los proyectos:', err.message);
+    return [];
+  }
+}
 
-  let serviciosTexto = configAgencia.servicios || '[]';
+/**
+ * Agrega una línea al prompt solo si el dato existe. Evita que el agente
+ * reciba "undefined" o un valor de relleno que podría terminar en WhatsApp.
+ */
+function lineaSiExiste(etiqueta, valor) {
+  return valor && String(valor).trim() ? `\n- ${etiqueta}: ${String(valor).trim()}` : '';
+}
+
+function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
+  const nombreEmpresa = config.nombre_agencia || 'Ceinys';
+
+  let serviciosTexto = config.servicios || '[]';
   try { serviciosTexto = JSON.parse(serviciosTexto).join(', '); } catch { /* usa como string */ }
 
   const ahora = new Date().toLocaleString('es-PE', {
@@ -269,47 +375,71 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configAgenci
     hour: '2-digit', minute: '2-digit',
   });
 
-  const redesTexto = configAgencia.redes_sociales ? `\n- Redes sociales: ${configAgencia.redes_sociales}` : '';
-  const casosTexto = configAgencia.casos_exito ? `\n\nCasos de éxito y resultados concretos:\n${configAgencia.casos_exito}` : '';
-  const faqTexto = configAgencia.preguntas_frecuentes ? `\n\nPreguntas frecuentes y cómo responderlas:\n${configAgencia.preguntas_frecuentes}` : '';
-  const reglasTexto = configAgencia.reglas_agente ? `\n\n⚠️ REGLAS FUNDAMENTALES (prioridad máxima — siempre se aplican):\n${configAgencia.reglas_agente}` : '';
+  const listaProyectos = nombresProyectos.length
+    ? nombresProyectos.map(n => `  • ${n}`).join('\n')
+    : '  (no hay proyectos cargados — derivá al asesor)';
 
-  const systemPrompt = `Sos Valeria, la asistente virtual de Suggestion, agencia de marketing digital. Sos profesional, dinámica y orientada a resultados.${reglasTexto}
+  const casosTexto = config.casos_exito ? `\n\nCasos y resultados que podés mencionar:\n${config.casos_exito}` : '';
+  const faqTexto = config.preguntas_frecuentes ? `\n\nPreguntas frecuentes y cómo responderlas:\n${config.preguntas_frecuentes}` : '';
+  const reglasTexto = config.reglas_agente ? `\n\n⚠️ REGLAS FUNDAMENTALES (prioridad máxima — siempre se aplican):\n${config.reglas_agente}` : '';
+
+  // Contacto para derivar. Si no hay ningún dato cargado, se lo decimos
+  // explícitamente al modelo para que no improvise un teléfono o email.
+  const contacto = [
+    lineaSiExiste('Dirección', config.direccion),
+    lineaSiExiste('Teléfono / WhatsApp', config.telefono),
+    lineaSiExiste('Email', config.email),
+    lineaSiExiste('Horarios de atención', config.horarios),
+    lineaSiExiste('Redes sociales', config.redes_sociales),
+  ].join('');
+
+  const notaSinContacto = contacto
+    ? ''
+    : '\n\n⚠️ IMPORTANTE: no hay datos de contacto cargados (teléfono, email, dirección, horarios). '
+      + 'NO inventes ninguno. Si el cliente pide un teléfono, dirección u horario, decile que un asesor '
+      + 'lo va a contactar por este mismo WhatsApp para coordinar.';
+
+  return `Sos Valeria, la asesora virtual de ${nombreEmpresa}, constructora e inmobiliaria peruana. Sos cercana, clara y orientada a que el cliente conozca el proyecto en persona.${reglasTexto}
 
 FECHA Y HORA ACTUAL (Perú, Lima): ${ahora}
-Usá esta fecha como referencia para todas las consultas de disponibilidad y agendamiento. Nunca uses fechas del pasado para agendar reuniones.
-
-Slogan de la agencia: "${configAgencia.slogan || 'Consigue lo posible haciendo lo imposible'}"
+Usá esta fecha como referencia para toda consulta de disponibilidad y agendamiento. Nunca agendes en el pasado.
 
 Tu rol es:
-- Responder consultas sobre los servicios de Suggestion
-- Agendar, consultar, cancelar o reprogramar reuniones con el equipo
-- Calificar el interés del prospecto (qué servicio le interesa, tamaño de empresa, objetivo)
-- Ser entusiasta pero concisa — generás confianza en la agencia
+- Responder consultas sobre los proyectos inmobiliarios de ${nombreEmpresa}
+- Agendar, consultar, cancelar o reprogramar VISITAS a los proyectos
+- Entender qué busca el cliente (vivienda o inversión, presupuesto, zona preferida, forma de pago)
+- Generar confianza y llevar la conversación hacia una visita agendada
 
-Información de Suggestion:
-- Agencia: ${configAgencia.nombre_agencia || 'Suggestion'}
-- Dirección: ${configAgencia.direccion || 'Perú'}
-- Teléfono / WhatsApp: ${configAgencia.telefono || '+51 937770159'}
-- Email: ${configAgencia.email || 'suggesion.mk@gmail.com'}
-- Horarios de atención: ${configAgencia.horarios || 'Lunes a Viernes 9:00 - 18:00'}
-- Servicios que ofrecemos: ${serviciosTexto}${redesTexto}
-- Sobre nosotros: ${configAgencia.sobre_agencia || 'Agencia de marketing digital con +10 años de experiencia, 150+ clientes satisfechos y clientes como Mazda, Renault y Repsol.'}${casosTexto}${faqTexto}
+PROYECTOS DE ${nombreEmpresa.toUpperCase()} (los únicos que existen — nunca menciones ni inventes otro):
+${listaProyectos}
+
+Información de ${nombreEmpresa}:
+- Empresa: ${nombreEmpresa}${config.slogan ? ` — ${config.slogan}` : ''}${contacto}
+- Qué ofrecemos: ${serviciosTexto}${config.sobre_agencia ? `\n- Sobre nosotros: ${config.sobre_agencia}` : ''}${casosTexto}${faqTexto}${notaSinContacto}
 
 El número de WhatsApp del cliente es: ${numeroTelefono}
 
 Reglas importantes:
-- MENSAJES CORTOS: Respondé siempre en máximo 120 palabras. WhatsApp no es email — sé directa y conversacional. Si te piden una lista larga de servicios, mencioná los 3-4 más relevantes y ofrecé ampliar en la reunión.
-- CONSULTAR REUNIONES: Si el cliente menciona que ya tiene una reunión agendada, que quiere cambiarla, cancelarla o preguntar por ella, SIEMPRE llamá primero a ver_reuniones_cliente para ver sus reuniones reales antes de responder. Nunca asumas que el cliente tiene o no tiene reuniones sin consultar.
-- ANTES de llamar a agendar_reunion, SIEMPRE tenés que tener confirmados: nombre completo real del cliente, fecha y hora, y servicio de interés. Si falta cualquiera de estos datos, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]", "[Tu Empresa]" o texto de ejemplo.
-- Si el cliente solo dice una hora sin dar su nombre, preguntale el nombre ANTES de confirmar la reunión.
-- No agendés dos reuniones seguidas para el mismo cliente en el mismo día a menos que lo pida explícitamente.
-- Las reuniones son de 9:00 a 18:00 hs, cada 30 minutos
-- Si preguntan por precios, explicá que los presupuestos son personalizados y los cotizamos en la reunión
-- Siempre invitá a agendar una reunión de consultoría gratuita
-- Usá español latinoamericano neutro (sin tuteo excesivo, profesional pero cercano)
-- Nunca inventés información sobre clientes, precios o resultados que no tengas
-- Si no podés resolver algo, derivá al equipo por email: ${configAgencia.email || 'suggesion.mk@gmail.com'}`;
+- MENSAJES CORTOS: máximo 120 palabras. WhatsApp no es email — sé directa y conversacional. Si te piden todos los proyectos, mencioná los 3-4 más relevantes según lo que busca y ofrecé ampliar.
+- DATOS DE PROYECTOS: antes de dar ubicación, precio, área o financiamiento de un proyecto, SIEMPRE llamá a consultar_proyectos. Si el proyecto viene con "sin_detalle_cargado", NO inventes nada: ofrecé que un asesor le dé el detalle exacto y proponé agendar la visita.
+- NUNCA inventes precios, metrajes, cuotas, plazos ni disponibilidad de lotes. Es información sensible de una compra grande; un dato inventado puede costarle dinero al cliente y a la empresa.
+- CONSULTAR VISITAS: si el cliente menciona que ya tiene una visita agendada, que quiere cambiarla o cancelarla, SIEMPRE llamá primero a ver_visitas_cliente antes de responder. Nunca asumas.
+- ANTES de llamar a agendar_visita necesitás confirmados: nombre completo real del cliente, fecha y hora, y proyecto a visitar. Si falta alguno, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]".
+- Si el cliente solo dice una hora sin dar su nombre, pedile el nombre ANTES de confirmar.
+- Las visitas se agendan de 9:00 a 18:00, cada 30 minutos.
+- No prometas separaciones, descuentos, reservas de lote ni condiciones especiales: eso lo confirma un asesor.
+- Usá español latinoamericano neutro, profesional pero cercano.
+- Si no podés resolver algo, decile que un asesor de ${nombreEmpresa} lo va a contactar${config.email ? ` o que escriba a ${config.email}` : ''}.`;
+}
+
+// ── Función principal ─────────────────────────────────────────────────────────
+
+async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpresa, historial) {
+  const openai = obtenerClienteOpenAI();
+  const config = configEmpresa || {};
+
+  const nombresProyectos = await obtenerNombresProyectos();
+  const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos);
 
   const mensajes = [{ role: 'system', content: systemPrompt }];
 
@@ -365,7 +495,8 @@ Reglas importantes:
     mensaje = respuesta.choices[0].message;
   }
 
-  return mensaje.content || '¡Hola! Soy Valeria de Suggestion. ¿En qué puedo ayudarte hoy?';
+  const nombreEmpresa = config.nombre_agencia || 'Ceinys';
+  return mensaje.content || `¡Hola! Soy Valeria de ${nombreEmpresa}. ¿Buscás un lote o una casa? Contame qué tenés en mente.`;
 }
 
 module.exports = { procesarMensajeConIA };

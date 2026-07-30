@@ -27,7 +27,7 @@ function BurbujaMensaje({ mensaje }) {
         <div className={`flex items-center gap-2 text-xs text-gray-400 ${esUsuario ? '' : 'flex-row-reverse'}`}>
           <span className="font-medium">{mensaje.numero_telefono}</span>
           <span className={`px-2 py-0.5 rounded-full font-medium text-xs ${
-            esUsuario ? 'bg-gray-100 text-gray-600' : 'bg-sky-100 text-sky-700'
+            esUsuario ? 'bg-gray-100 text-gray-600' : 'bg-orange-100 text-ceinys-orange-dark'
           }`}>
             {esUsuario ? 'Usuario' : 'Valeria'}
           </span>
@@ -44,7 +44,7 @@ function BurbujaMensaje({ mensaje }) {
       </div>
 
       {!esUsuario && (
-        <div className="flex-shrink-0 w-8 h-8 bg-sky-500 rounded-full flex items-center justify-center text-white text-xs font-bold mt-1">
+        <div className="flex-shrink-0 w-8 h-8 bg-ceinys-orange rounded-full flex items-center justify-center text-white text-xs font-bold mt-1">
           V
         </div>
       )}
@@ -80,7 +80,7 @@ export default function TabMensajes() {
       <div className="h-[600px] overflow-y-auto p-6 space-y-5 bg-gray-50">
         {isLoading && (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
-            <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
             <p className="text-sm">Cargando mensajes...</p>
           </div>
         )}
@@ -101,7 +101,7 @@ export default function TabMensajes() {
             <p className="text-5xl">💬</p>
             <p className="text-sm font-medium">No hay mensajes todavía.</p>
             <p className="text-xs text-center max-w-xs text-gray-400">
-              Los mensajes de WhatsApp aparecerán aquí cuando los prospectos escriban.
+              Los mensajes de WhatsApp aparecerán acá cuando los interesados escriban.
             </p>
           </div>
         )}

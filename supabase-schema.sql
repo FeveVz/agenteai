@@ -1,6 +1,11 @@
 -- ================================================================
--- SCHEMA para Suggestion — Agencia de Marketing Digital
--- Pegar en Supabase SQL Editor y ejecutar
+-- SCHEMA para Ceinys — Constructora e Inmobiliaria
+--
+-- Este archivo es para una instalación LIMPIA (proyecto Supabase nuevo).
+-- Si ya tenés la base andando con el esquema anterior (Suggestion),
+-- NO uses este archivo: corré `supabase-migration-ceinys.sql`.
+--
+-- Pegar en Supabase → SQL Editor → Run.
 -- ================================================================
 
 -- Tabla: mensajes_whatsapp
@@ -15,21 +20,57 @@ CREATE TABLE IF NOT EXISTS mensajes_whatsapp (
   recibido_en TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tabla: reuniones (equivalente a turnos, adaptado para agencia)
-CREATE TABLE IF NOT EXISTS reuniones (
+-- Tabla: visitas — visitas agendadas a los proyectos
+CREATE TABLE IF NOT EXISTS visitas (
   id BIGSERIAL PRIMARY KEY,
   numero_telefono TEXT NOT NULL,
   nombre_cliente TEXT,
-  empresa TEXT,
-  fecha_reunion TEXT,
-  tipo_servicio TEXT,
+  fecha_visita TEXT,
+  proyecto_interes TEXT,
   estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente', 'confirmada', 'cancelada', 'completada')),
   notas TEXT,
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger para actualizar actualizado_en
+-- Tabla: proyectos — catálogo que conoce Valeria
+CREATE TABLE IF NOT EXISTS proyectos (
+  id BIGSERIAL PRIMARY KEY,
+  nombre TEXT NOT NULL UNIQUE,
+  ubicacion TEXT,
+  tipo TEXT,
+  descripcion TEXT,
+  precio_desde TEXT,
+  area_desde TEXT,
+  caracteristicas TEXT,
+  financiamiento TEXT,
+  activo BOOLEAN DEFAULT TRUE,
+  orden INTEGER DEFAULT 100,
+  creado_en TIMESTAMPTZ DEFAULT NOW(),
+  actualizado_en TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabla: configuracion_agencia — datos de la empresa
+CREATE TABLE IF NOT EXISTS configuracion_agencia (
+  id BIGSERIAL PRIMARY KEY,
+  nombre_agencia TEXT DEFAULT 'Ceinys',
+  slogan TEXT,
+  direccion TEXT,
+  telefono TEXT,
+  email TEXT,
+  horarios TEXT,
+  servicios TEXT,
+  sobre_agencia TEXT,
+  casos_exito TEXT,
+  redes_sociales TEXT,
+  preguntas_frecuentes TEXT,
+  reglas_agente TEXT,
+  webhook_url TEXT,
+  creado_en TIMESTAMPTZ DEFAULT NOW(),
+  actualizado_en TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Trigger compartido de actualizado_en
 CREATE OR REPLACE FUNCTION actualizar_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -38,40 +79,48 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER actualizar_reunion_timestamp
-BEFORE UPDATE ON reuniones
-FOR EACH ROW EXECUTE FUNCTION actualizar_timestamp();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'actualizar_visita_timestamp') THEN
+    CREATE TRIGGER actualizar_visita_timestamp
+      BEFORE UPDATE ON visitas FOR EACH ROW EXECUTE FUNCTION actualizar_timestamp();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'actualizar_proyecto_timestamp') THEN
+    CREATE TRIGGER actualizar_proyecto_timestamp
+      BEFORE UPDATE ON proyectos FOR EACH ROW EXECUTE FUNCTION actualizar_timestamp();
+  END IF;
+END $$;
 
--- Tabla: configuracion_agencia
-CREATE TABLE IF NOT EXISTS configuracion_agencia (
-  id BIGSERIAL PRIMARY KEY,
-  nombre_agencia TEXT DEFAULT 'Suggestion',
-  slogan TEXT,
-  direccion TEXT,
-  telefono TEXT,
-  email TEXT,
-  horarios TEXT,
-  servicios TEXT,
-  sobre_agencia TEXT,
-  webhook_url TEXT,
-  creado_en TIMESTAMPTZ DEFAULT NOW(),
-  actualizado_en TIMESTAMPTZ DEFAULT NOW()
-);
+-- Proyectos de Ceinys (solo nombres verificados — el resto se completa
+-- desde el panel; Valeria no inventa datos que no estén cargados)
+INSERT INTO proyectos (nombre, orden) VALUES
+  ('Altos de Sacta',   10),
+  ('Valle Sacta',      20),
+  ('Arenas del Valle', 30),
+  ('Sol de Carhuaz',   40),
+  ('Club Carhuaz',     50),
+  ('La Palma Paracas', 60),
+  ('Monte Alegre',     70),
+  ('Los Sauces',       80),
+  ('Casa Sauces',      90)
+ON CONFLICT (nombre) DO NOTHING;
 
--- Configuración por defecto con datos reales de Suggestion
-INSERT INTO configuracion_agencia (nombre_agencia, slogan, direccion, telefono, email, horarios, servicios, sobre_agencia)
-VALUES (
-  'Suggestion',
-  'Consigue lo posible haciendo lo imposible',
-  'Residencial Jardin C4, Urb San Jose, Perú',
-  '+51 937770159',
-  'suggesion.mk@gmail.com',
-  'Lunes a Viernes: 9:00 - 18:00 hs' || chr(10) || 'Sábados: 9:00 - 13:00 hs',
-  '["Marketing Digital","Redes Sociales","Publicidad Digital (Meta Ads & Google Ads)","SEO y Posicionamiento","Branding e Identidad Visual","Desarrollo Web","Consultoría Estratégica","CRM y Automatización","Producción Audiovisual","Investigación de Mercado"]',
-  'Somos Suggestion, una agencia de marketing digital que transforma tu presencia en resultados. Con más de 10 años de experiencia, 150+ clientes satisfechos y 500+ proyectos completados, ayudamos a empresas a crecer con estrategias integrales de marketing digital. Clientes como Mazda, Renault, Repsol y Subaru confían en nosotros.'
-);
+-- Configuración base
+INSERT INTO configuracion_agencia (nombre_agencia, slogan, sobre_agencia, servicios, reglas_agente)
+SELECT
+  'Ceinys',
+  'Constructora e Inmobiliaria',
+  'Somos Ceinys, constructora e inmobiliaria peruana. Desarrollamos y comercializamos '
+  || 'proyectos de lotes y viviendas en distintas zonas del país, acompañando al cliente '
+  || 'desde la primera visita hasta la entrega de su propiedad.',
+  '["Venta de lotes","Venta de viviendas","Asesoría de inversión inmobiliaria","Financiamiento directo","Acompañamiento legal y notarial","Visitas guiadas a proyectos"]',
+  '- Solo hablar de Ceinys y sus proyectos inmobiliarios.' || chr(10) ||
+  '- NUNCA inventar precios, metrajes, ubicaciones ni financiamiento. Si el dato no está cargado, derivar a un asesor.' || chr(10) ||
+  '- El objetivo de cada conversación es agendar una visita al proyecto.'
+WHERE NOT EXISTS (SELECT 1 FROM configuracion_agencia);
 
--- Deshabilitar RLS (acceso desde backend con service key)
-ALTER TABLE mensajes_whatsapp DISABLE ROW LEVEL SECURITY;
-ALTER TABLE reuniones DISABLE ROW LEVEL SECURITY;
+-- RLS deshabilitado (el backend accede con service key)
+ALTER TABLE mensajes_whatsapp     DISABLE ROW LEVEL SECURITY;
+ALTER TABLE visitas               DISABLE ROW LEVEL SECURITY;
+ALTER TABLE proyectos             DISABLE ROW LEVEL SECURITY;
 ALTER TABLE configuracion_agencia DISABLE ROW LEVEL SECURITY;

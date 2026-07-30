@@ -13,7 +13,7 @@ const app = require('./app');
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
-  console.log(`\n🦷 Clínica Dental — Servidor iniciado`);
+  console.log(`\n🏗️  Ceinys — Servidor iniciado`);
   console.log(`   → API:     http://localhost:${PORT}/api`);
   console.log(`   → Webhook: http://localhost:${PORT}/api/webhook/whatsapp`);
   console.log(`   → Health:  http://localhost:${PORT}/api/health\n`);

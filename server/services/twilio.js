@@ -59,9 +59,10 @@ async function enviarMensajeWhatsApp(numeroDestino, mensaje) {
 /**
  * Genera una respuesta de error estándar para cuando falla la IA
  */
-function generarRespuestaError(telefonoClinica) {
-  const contacto = telefonoClinica || 'la agencia';
-  const mensaje = `Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos o escribí al ${contacto}. 🙏`;
+function generarRespuestaError(telefonoEmpresa) {
+  const mensaje = telefonoEmpresa
+    ? `Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos o escribí al ${telefonoEmpresa}. 🙏`
+    : 'Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos y un asesor te va a atender. 🙏';
   return generarRespuestaTwiML(mensaje);
 }
 

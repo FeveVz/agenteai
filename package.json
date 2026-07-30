@@ -1,7 +1,7 @@
 {
-  "name": "clinica-dental",
+  "name": "ceinys-agente-ia",
   "version": "1.0.0",
-  "description": "Sistema de turnos para clínica dental con WhatsApp + IA",
+  "description": "Agente IA de Ceinys para atención y agendamiento de visitas por WhatsApp",
   "main": "server/index.js",
   "scripts": {
     "dev": "concurrently \"node server/index.js\" \"cd client && npm run dev\"",
