@@ -1,7 +1,13 @@
 const express = require('express');
 const { obtenerSupabase } = require('../db');
 const { procesarMensajeConIA } = require('../services/openai');
-const { generarRespuestaTwiML, TWIML_VACIO, enviarMensajeWhatsApp, generarRespuestaError } = require('../services/twilio');
+const {
+  generarRespuestaTwiML,
+  TWIML_VACIO,
+  enviarMensajeWhatsApp,
+  generarRespuestaError,
+  validarFirmaTwilio,
+} = require('../services/twilio');
 
 const router = express.Router();
 
@@ -26,6 +32,19 @@ router.post('/whatsapp', async (req, res) => {
   console.log(`\n[Webhook] Nuevo mensaje — ${new Date().toISOString()}`);
 
   try {
+    // Solo Twilio puede invocar este endpoint. Esto es lo que permite dejarlo
+    // público sin depender de la protección de Vercel.
+    const firma = validarFirmaTwilio(req);
+
+    if (!firma.valida) {
+      console.warn(`[Webhook] Firma rechazada (${firma.motivo}). URL evaluada: ${firma.url}`);
+      return res.status(403).json({ error: 'Firma de Twilio inválida.' });
+    }
+
+    if (firma.motivo === 'sin_token') {
+      console.warn('[Webhook] ⚠️  TWILIO_AUTH_TOKEN no configurado: el webhook acepta cualquier origen.');
+    }
+
     const { Body: contenidoMensaje, From: telefonoRaw } = req.body;
 
     if (!contenidoMensaje || !telefonoRaw) {

@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import TabMensajes from '../components/TabMensajes';
 import TabVisitas from '../components/TabVisitas';
 import TabProyectos from '../components/TabProyectos';
 import TabConfiguracion from '../components/TabConfiguracion';
+import LoginGate from '../components/LoginGate';
+import { cerrarSesion } from '../lib/api';
 
 const PESTANAS = [
   { id: 'mensajes', etiqueta: 'Mensajes' },
@@ -13,8 +16,23 @@ const PESTANAS = [
 ];
 
 export default function Dashboard() {
+  return (
+    <LoginGate>
+      <PanelCeinys />
+    </LoginGate>
+  );
+}
+
+function PanelCeinys() {
   const [pestanaActiva, setPestanaActiva] = useState('mensajes');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  function salir() {
+    cerrarSesion();
+    queryClient.clear();
+    window.location.reload();
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -29,12 +47,20 @@ export default function Dashboard() {
               <p className="text-xs text-gray-500">Panel de Control — Agente IA</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/')}
-            className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
-          >
-            ← Inicio
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/')}
+              className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
+            >
+              ← Inicio
+            </button>
+            <button
+              onClick={salir}
+              className="text-gray-500 hover:text-ceinys-orange text-sm transition-colors"
+            >
+              Salir
+            </button>
+          </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6">

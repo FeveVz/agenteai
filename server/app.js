@@ -7,8 +7,15 @@ const mensajesRouter = require('./routes/mensajes');
 const visitasRouter = require('./routes/visitas');
 const proyectosRouter = require('./routes/proyectos');
 const configuracionRouter = require('./routes/configuracion');
+const authRouter = require('./routes/auth');
+const { requiereAuth, proteccionActiva } = require('./middleware/auth');
+const { obtenerSupabase } = require('./db');
 
 const app = express();
+
+// Detrás del proxy de Vercel: necesario para que req.ip sea la IP real
+// del cliente y no la del proxy (lo usa el rate limit del login).
+app.set('trust proxy', true);
 
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
 app.use(express.json());
@@ -19,15 +26,52 @@ app.use((req, _res, next) => {
   next();
 });
 
+// ── Rutas públicas ────────────────────────────────────────────────────────────
+// El webhook se protege con la firma de Twilio, no con el token del panel:
+// Twilio no puede mandar cabeceras Authorization.
 app.use('/api/webhook', webhookRouter);
-app.use('/api/mensajes', mensajesRouter);
-app.use('/api/visitas', visitasRouter);
-app.use('/api/proyectos', proyectosRouter);
-app.use('/api/configuracion', configuracionRouter);
+app.use('/api/auth', authRouter);
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, empresa: 'Ceinys', timestamp: new Date().toISOString() });
+// Diagnóstico. No expone datos: solo si las piezas están conectadas.
+app.get('/api/health', async (_req, res) => {
+  const salud = {
+    ok: true,
+    empresa: 'Ceinys',
+    timestamp: new Date().toISOString(),
+    config: {
+      openai: Boolean(process.env.OPENAI_API_KEY),
+      supabase: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY),
+      twilio_envio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM),
+      twilio_firma: Boolean(process.env.TWILIO_AUTH_TOKEN),
+      panel_protegido: proteccionActiva(),
+    },
+    base_de_datos: { conectada: false, tablas: {} },
+  };
+
+  try {
+    const supabase = obtenerSupabase();
+
+    for (const tabla of ['configuracion_agencia', 'visitas', 'proyectos', 'mensajes_whatsapp']) {
+      const { error } = await supabase.from(tabla).select('id', { count: 'exact', head: true });
+      salud.base_de_datos.tablas[tabla] = error ? `error: ${error.message}` : 'ok';
+    }
+
+    salud.base_de_datos.conectada = Object.values(salud.base_de_datos.tablas).every(v => v === 'ok');
+  } catch (error) {
+    salud.base_de_datos.error = error.message;
+  }
+
+  const todoOk = salud.config.openai && salud.config.supabase && salud.base_de_datos.conectada;
+  salud.ok = todoOk;
+
+  res.status(todoOk ? 200 : 503).json(salud);
 });
+
+// ── Rutas protegidas (requieren login en el panel) ─────────────────────────────
+app.use('/api/mensajes', requiereAuth, mensajesRouter);
+app.use('/api/visitas', requiereAuth, visitasRouter);
+app.use('/api/proyectos', requiereAuth, proyectosRouter);
+app.use('/api/configuracion', requiereAuth, configuracionRouter);
 
 const distPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(distPath));

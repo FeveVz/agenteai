@@ -100,11 +100,47 @@ SUPABASE_SERVICE_KEY=...
 TWILIO_ACCOUNT_SID=...
 TWILIO_AUTH_TOKEN=...
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+PANEL_PASSWORD=...
 PORT=3001
 ```
 
-Las de Twilio hacen falta solo para las respuestas asíncronas (ver más abajo). En Vercel se
-configuran en **Project Settings → Environment Variables**.
+En Vercel se configuran en **Project Settings → Environment Variables**.
+
+| Variable | Si falta |
+|---|---|
+| `OPENAI_API_KEY` | El agente no puede responder |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Toda la API responde 500 |
+| `TWILIO_AUTH_TOKEN` | No se valida la firma del webhook **y** se pierden las respuestas de más de 9s |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_WHATSAPP_FROM` | Se pierden las respuestas de más de 9s |
+| `PANEL_PASSWORD` | **El panel y la API quedan sin protección** |
+
+---
+
+## Seguridad
+
+La app es pública en internet, así que se protege sola en dos capas distintas:
+
+**1. El webhook — firma de Twilio.**
+`/api/webhook/whatsapp` no puede pedir login: Twilio no manda cabeceras `Authorization`.
+En su lugar valida la cabecera `x-twilio-signature` contra `TWILIO_AUTH_TOKEN`. Solo Twilio
+puede generar esa firma, así que el endpoint puede quedar público sin riesgo. Si la firma no
+valida, responde `403`.
+
+> Si `TWILIO_AUTH_TOKEN` no está configurado, el webhook **acepta cualquier origen** y lo avisa
+> en los logs. Es a propósito, para que un despliegue incompleto no deje el agente mudo — pero
+> no es un estado en el que quieras quedarte.
+
+**2. El panel — contraseña.**
+Todo `/api` (salvo webhook, `auth` y `health`) exige `Authorization: Bearer <token>`. El token
+se obtiene en `POST /api/auth/login` con `PANEL_PASSWORD`, va firmado con HMAC-SHA256 y dura
+12 horas. No hay estado en el servidor: cambiar la contraseña invalida todas las sesiones.
+El login tiene límite de 10 intentos cada 15 minutos por IP.
+
+La pantalla de login del frontend es solo comodidad — **lo que protege los datos es el
+middleware del backend**. Saltear la UI no da acceso a nada.
+
+Esto es lo que permite apagar la protección de Vercel (*Deployment Protection*) sin exponer
+las conversaciones ni los teléfonos de los clientes.
 
 ---
 
@@ -138,18 +174,22 @@ con método **HTTP POST**. En producción la URL es
 
 ## API REST
 
+Las rutas marcadas 🔒 exigen `Authorization: Bearer <token>`.
+
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/api/webhook/whatsapp` | Webhook de Twilio |
-| GET | `/api/mensajes` | Últimos mensajes |
-| GET | `/api/visitas` | Todas las visitas |
-| GET | `/api/visitas/:fecha` | Visitas de una fecha (`YYYY-MM-DD`) |
-| GET | `/api/proyectos` | Catálogo de proyectos |
-| POST | `/api/proyectos` | Crear un proyecto |
-| PUT | `/api/proyectos/:id` | Actualizar un proyecto |
-| GET | `/api/configuracion` | Datos de la empresa |
-| PUT | `/api/configuracion` | Actualizar datos de la empresa |
-| GET | `/api/health` | Estado del servicio |
+| POST | `/api/webhook/whatsapp` | Webhook de Twilio (validado por firma) |
+| GET | `/api/auth/estado` | ¿Está activa la protección del panel? |
+| POST | `/api/auth/login` | Devuelve el token del panel |
+| GET | 🔒 `/api/mensajes` | Últimos mensajes |
+| GET | 🔒 `/api/visitas` | Todas las visitas |
+| GET | 🔒 `/api/visitas/:fecha` | Visitas de una fecha (`YYYY-MM-DD`) |
+| GET | 🔒 `/api/proyectos` | Catálogo de proyectos |
+| POST | 🔒 `/api/proyectos` | Crear un proyecto |
+| PUT | 🔒 `/api/proyectos/:id` | Actualizar un proyecto |
+| GET | 🔒 `/api/configuracion` | Datos de la empresa |
+| PUT | 🔒 `/api/configuracion` | Actualizar datos de la empresa |
+| GET | `/api/health` | Diagnóstico: variables configuradas y estado de las tablas |
 
 ---
 
