@@ -213,10 +213,11 @@ WHERE reglas_agente IS NULL OR trim(reglas_agente) = '';
 -- 5. RLS (el backend entra con service key)
 -- ────────────────────────────────────────────────────────────────
 
-ALTER TABLE mensajes_whatsapp       DISABLE ROW LEVEL SECURITY;
-ALTER TABLE visitas                 DISABLE ROW LEVEL SECURITY;
-ALTER TABLE proyectos               DISABLE ROW LEVEL SECURITY;
-ALTER TABLE configuracion_agencia   DISABLE ROW LEVEL SECURITY;
+-- RLS activo y sin politicas: el backend usa service_role, que lo ignora.
+ALTER TABLE mensajes_whatsapp       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE visitas                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proyectos               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE configuracion_agencia   ENABLE ROW LEVEL SECURITY;
 
 
 -- ────────────────────────────────────────────────────────────────

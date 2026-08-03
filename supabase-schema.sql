@@ -121,8 +121,11 @@ SELECT
   '- El objetivo de cada conversación es agendar una visita al proyecto.'
 WHERE NOT EXISTS (SELECT 1 FROM configuracion_agencia);
 
--- RLS deshabilitado (el backend accede con service key)
-ALTER TABLE mensajes_whatsapp     DISABLE ROW LEVEL SECURITY;
-ALTER TABLE visitas               DISABLE ROW LEVEL SECURITY;
-ALTER TABLE proyectos             DISABLE ROW LEVEL SECURITY;
-ALTER TABLE configuracion_agencia DISABLE ROW LEVEL SECURITY;
+-- RLS activo y SIN políticas: así ni anon ni authenticated pueden tocar
+-- estas tablas. El backend entra con la service_role key, que ignora RLS,
+-- por lo que sigue funcionando igual. Es la postura segura para tablas que
+-- guardan conversaciones y teléfonos de clientes.
+ALTER TABLE mensajes_whatsapp     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE visitas               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proyectos             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE configuracion_agencia ENABLE ROW LEVEL SECURITY;

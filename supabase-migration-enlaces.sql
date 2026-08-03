@@ -23,7 +23,11 @@ CREATE TABLE IF NOT EXISTS enlaces_agenda (
 
 CREATE INDEX IF NOT EXISTS idx_enlaces_expira ON enlaces_agenda (expira_en);
 
-ALTER TABLE enlaces_agenda DISABLE ROW LEVEL SECURITY;
+-- A diferencia de las otras tablas, esta SI lleva RLS activo.
+-- Guarda numeros de telefono de clientes, y como no definimos ninguna
+-- politica, ni anon ni authenticated pueden leerla. El backend entra con
+-- la service_role key, que ignora RLS, asi que sigue funcionando igual.
+ALTER TABLE enlaces_agenda ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE enlaces_agenda IS
   'Enlaces cortos que Valeria manda por WhatsApp para agendar visitas. El codigo reemplaza al token firmado en la URL.';
