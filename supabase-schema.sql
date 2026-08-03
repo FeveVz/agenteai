@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS proyectos (
   area_desde TEXT,
   caracteristicas TEXT,
   financiamiento TEXT,
+  estado_comercial TEXT,        -- Pre-venta / En obra / Entregado
+  entrega_titulo TEXT,          -- cuándo se entrega el título y la posesión
   activo BOOLEAN DEFAULT TRUE,
   orden INTEGER DEFAULT 100,
   creado_en TIMESTAMPTZ DEFAULT NOW(),

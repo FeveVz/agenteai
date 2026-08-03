@@ -169,7 +169,12 @@ UPDATE configuracion_agencia SET
                    'Planeamiento integral aprobado por la Municipalidad de Ica en Sol de Carhuaz',
   preguntas_frecuentes =
     'P: ¿Los lotes tienen título de propiedad?' || chr(10) ||
-    'R: Sí. Nuestros proyectos están inscritos en Registros Públicos y se entrega título de propiedad.' || chr(10) || chr(10) ||
+    'R: Todos nuestros proyectos se entregan con título de propiedad. La mayoría está hoy en pre-venta, '
+    || 'así que el título se entrega en la fecha proyectada de cada etapa — un asesor te confirma la de tu '
+    || 'proyecto. Desde el primer día comprás con respaldo: partida registral, empresa inscrita y contrato firmado.' || chr(10) || chr(10) ||
+    'P: ¿Qué ventaja tiene comprar en pre-venta?' || chr(10) ||
+    'R: Es la etapa de precio más bajo de todo el proyecto y la de mayor potencial de revalorización. '
+    || 'Además podés elegir entre los mejores lotes, que son los primeros en venderse.' || chr(10) || chr(10) ||
     'P: ¿Puedo pagar en cuotas? ¿Piden evaluación crediticia?' || chr(10) ||
     'R: Tenemos financiamiento directo, sin evaluación crediticia y con 0% de interés. No se necesita banco.' || chr(10) || chr(10) ||
     'P: ¿Qué requisitos piden para comprar?' || chr(10) ||

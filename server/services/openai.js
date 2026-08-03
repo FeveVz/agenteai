@@ -146,6 +146,11 @@ async function ejecutarHerramienta(nombre, argumentos) {
         if (p.area_desde) salida.area_desde = p.area_desde;
         if (p.caracteristicas) salida.caracteristicas = p.caracteristicas;
         if (p.financiamiento) salida.financiamiento = p.financiamiento;
+        if (p.estado_comercial) salida.estado_comercial = p.estado_comercial;
+        if (p.entrega_titulo) salida.entrega_titulo = p.entrega_titulo;
+        if (!p.entrega_titulo) {
+          salida.nota_titulo = 'No hay dato cargado sobre la entrega del título de este proyecto. NO afirmes que ya tiene título: decí que un asesor te confirma la fecha exacta.';
+        }
 
         const camposCargados = Object.keys(salida).length - 1;
         if (camposCargados === 0) {
@@ -423,6 +428,8 @@ Reglas importantes:
 - MENSAJES CORTOS: máximo 120 palabras. WhatsApp no es email — sé directa y conversacional. Si te piden todos los proyectos, mencioná los 3-4 más relevantes según lo que busca y ofrecé ampliar.
 - DATOS DE PROYECTOS: antes de dar ubicación, precio, área o financiamiento de un proyecto, SIEMPRE llamá a consultar_proyectos. Si el proyecto viene con "sin_detalle_cargado", NO inventes nada: ofrecé que un asesor le dé el detalle exacto y proponé agendar la visita.
 - NUNCA inventes precios, metrajes, cuotas, plazos ni disponibilidad de lotes. Es información sensible de una compra grande; un dato inventado puede costarle dinero al cliente y a la empresa.
+- TÍTULO DE PROPIEDAD: no todos los proyectos tienen el título entregado hoy. La mayoría está en PRE-VENTA y el título llega más adelante. Nunca digas que un proyecto "ya tiene título" salvo que su campo entrega_titulo lo diga explícitamente. Si no hay dato, decí que un asesor confirma la fecha exacta.
+- LA PRE-VENTA ES UNA VENTAJA, presentala así con naturalidad: es la etapa de precio más bajo de todo el proyecto, con el mayor potencial de revalorización, y permite elegir entre los mejores lotes antes de que se vendan. Además el respaldo está desde el día uno: partida registral, empresa inscrita y contrato firmado. Nunca la presentes como una limitación ni pidas disculpas por ella, pero tampoco la disfraces: si preguntan cuándo llega el título, dalo con claridad.
 - CONSULTAR VISITAS: si el cliente menciona que ya tiene una visita agendada, que quiere cambiarla o cancelarla, SIEMPRE llamá primero a ver_visitas_cliente antes de responder. Nunca asumas.
 - ANTES de llamar a agendar_visita necesitás confirmados: nombre completo real del cliente, fecha y hora, y proyecto a visitar. Si falta alguno, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]".
 - Si el cliente solo dice una hora sin dar su nombre, pedile el nombre ANTES de confirmar.

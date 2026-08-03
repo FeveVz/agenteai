@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { obtenerProyectos, actualizarProyecto, crearProyecto } from '../lib/api';
 
 // Campos que Valeria puede citar. Si están todos vacíos, deriva al asesor.
-const CAMPOS_DE_DATO = ['ubicacion', 'tipo', 'descripcion', 'precio_desde', 'area_desde', 'caracteristicas', 'financiamiento'];
+const CAMPOS_DE_DATO = ['ubicacion', 'tipo', 'descripcion', 'precio_desde', 'area_desde', 'caracteristicas', 'financiamiento', 'estado_comercial', 'entrega_titulo'];
 
 function tieneDatos(proyecto) {
   return CAMPOS_DE_DATO.some(c => proyecto[c] && String(proyecto[c]).trim());
@@ -97,6 +97,21 @@ function TarjetaProyecto({ proyecto }) {
             <Campo label="Precio desde" name="precio_desde" value={form.precio_desde} onChange={cambiar} placeholder="S/ 25,000" />
             <Campo label="Financiamiento" name="financiamiento" value={form.financiamiento} onChange={cambiar} placeholder="Inicial 20% + 36 cuotas" />
           </div>
+          <Campo label="Estado comercial" name="estado_comercial" value={form.estado_comercial} onChange={cambiar} placeholder="Pre-venta / En obra / Entregado" />
+          <Campo
+            label="Entrega del título de propiedad"
+            name="entrega_titulo"
+            value={form.entrega_titulo}
+            onChange={cambiar}
+            placeholder="Ej: Título proyectado para diciembre 2026, entrega física en 2029. Ya cuenta con partida registral."
+            textarea
+            rows={3}
+          />
+          <p className="text-xs text-gray-400 -mt-2">
+            Si dejás esto vacío, Valeria no va a afirmar que el proyecto tiene título: deriva al asesor.
+            Es a propósito — prometer un título que todavía no existe es un problema serio en una venta de terreno.
+          </p>
+
           <Campo label="Descripción" name="descripcion" value={form.descripcion} onChange={cambiar} placeholder="Cómo describirías el proyecto a un interesado" textarea rows={3} />
           <Campo
             label="Características"
