@@ -90,7 +90,8 @@ function Burbuja({ mensaje }) {
 
 export default function TabMensajes() {
   const [numeroActivo, setNumeroActivo] = useState(null);
-  const finDeLista = useRef(null);
+  const contenedorMensajes = useRef(null);
+  const numeroPrevio = useRef(null);
 
   const { data: dataConvs, isLoading: cargandoConvs, isError, error } = useQuery({
     queryKey: ['conversaciones'],
@@ -115,8 +116,20 @@ export default function TabMensajes() {
   // Vienen del más nuevo al más viejo; se invierten para leer de arriba hacia abajo
   const mensajes = [...(dataChat?.mensajes || [])].reverse();
 
+  // Se mueve solo el scroll interno del panel de mensajes.
+  // Con scrollIntoView se arrastraban también los contenedores padre y la
+  // página entera saltaba al fondo al abrir la pestaña.
   useEffect(() => {
-    finDeLista.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    const cont = contenedorMensajes.current;
+    if (!cont) return;
+
+    const cambioDeChat = numeroPrevio.current !== numeroActivo;
+    numeroPrevio.current = numeroActivo;
+
+    // Al abrir un chat siempre vamos al último mensaje. Pero si el usuario
+    // subió a leer el historial, el refresco de 5s no lo arrastra de vuelta.
+    const cercaDelFinal = cont.scrollHeight - cont.scrollTop - cont.clientHeight < 120;
+    if (cambioDeChat || cercaDelFinal) cont.scrollTop = cont.scrollHeight;
   }, [mensajes.length, numeroActivo]);
 
   if (isError) {
@@ -191,7 +204,7 @@ export default function TabMensajes() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              <div ref={contenedorMensajes} className="flex-1 overflow-y-auto p-5 space-y-3">
                 {cargandoChat && mensajes.length === 0 && <Spinner texto="Cargando conversación..." className="h-32" />}
 
                 {mensajes.map((m, i) => {
@@ -212,7 +225,6 @@ export default function TabMensajes() {
                     </div>
                   );
                 })}
-                <div ref={finDeLista} />
               </div>
             </>
           )}
