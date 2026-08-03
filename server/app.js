@@ -48,12 +48,31 @@ app.get('/api/health', async (_req, res) => {
     base_de_datos: { conectada: false, tablas: {} },
   };
 
+  // Huella del proyecto Supabase al que apunta, para poder confirmar desde
+  // afuera que las variables apuntan a donde creemos. No expone el ref completo.
+  try {
+    const host = new URL(process.env.SUPABASE_URL).host;
+    salud.base_de_datos.proyecto = `${host.slice(0, 6)}…${host.slice(host.indexOf('.'))}`;
+  } catch { /* URL ausente o inválida */ }
+
+  // Formato de la clave, sin revelar su valor: ayuda a distinguir entre la
+  // clave nueva (sb_secret_/sb_publishable_) y la legacy (JWT que empieza con eyJ).
+  const clave = process.env.SUPABASE_SERVICE_KEY || '';
+  salud.base_de_datos.tipo_clave = !clave ? 'ausente'
+    : clave.startsWith('sb_secret_') ? 'nueva-secret'
+    : clave.startsWith('sb_publishable_') ? 'nueva-publishable (SIN permisos de escritura)'
+    : clave.startsWith('eyJ') ? 'legacy-jwt'
+    : 'desconocido';
+  salud.base_de_datos.largo_clave = clave.length;
+
   try {
     const supabase = obtenerSupabase();
 
     for (const tabla of ['configuracion_agencia', 'visitas', 'proyectos', 'mensajes_whatsapp']) {
       const { error } = await supabase.from(tabla).select('id', { count: 'exact', head: true });
-      salud.base_de_datos.tablas[tabla] = error ? `error: ${error.message}` : 'ok';
+      salud.base_de_datos.tablas[tabla] = error
+        ? `error[${error.code || 's/codigo'}]: ${error.message || error.hint || error.details || '(sin mensaje)'}`
+        : 'ok';
     }
 
     salud.base_de_datos.conectada = Object.values(salud.base_de_datos.tablas).every(v => v === 'ok');
