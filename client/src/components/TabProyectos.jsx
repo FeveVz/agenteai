@@ -114,6 +114,21 @@ function TarjetaProyecto({ proyecto }) {
 
           <Campo label="Descripción" name="descripcion" value={form.descripcion} onChange={cambiar} placeholder="Cómo describirías el proyecto a un interesado" textarea rows={3} />
           <Campo
+            label="Imágenes (una URL por línea)"
+            name="imagenes"
+            value={form.imagenes}
+            onChange={cambiar}
+            placeholder={'https://wspai.vercel.app/proyectos/ejemplo.jpg | Plano de etapas\nhttps://wspai.vercel.app/proyectos/otra.jpg | Pórtico de ingreso'}
+            textarea
+            rows={4}
+          />
+          <p className="text-xs text-gray-400 -mt-2">
+            Valeria las manda por WhatsApp cuando el cliente pide ver el proyecto. La descripción
+            después de <code className="bg-gray-100 px-1 rounded">|</code> es para que sepa cuál elegir; el cliente no la ve.
+            Tienen que ser URLs públicas — Twilio no puede leer imágenes protegidas.
+          </p>
+
+          <Campo
             label="Características"
             name="caracteristicas"
             value={form.caracteristicas}

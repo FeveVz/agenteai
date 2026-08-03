@@ -127,22 +127,28 @@ router.post('/whatsapp', async (req, res) => {
 
     clearTimeout(timer);
 
+    // procesarMensajeConIA devuelve { texto, imagenes }
+    const textoRespuesta = respuestaIA.texto;
+    const imagenes = respuestaIA.imagenes || [];
+
     await supabase.from('mensajes_whatsapp').insert({
       numero_telefono: numeroTelefono,
-      contenido_mensaje: respuestaIA,
+      contenido_mensaje: imagenes.length
+        ? `${textoRespuesta}\n[+${imagenes.length} imagen(es) enviada(s)]`
+        : textoRespuesta,
       remitente: 'asistente',
-      tipo_mensaje: 'texto',
+      tipo_mensaje: imagenes.length ? 'texto_e_imagen' : 'texto',
       procesado: 1,
     });
 
     if (!twilioRespondido) {
       // Respuesta rápida: enviar por TwiML normalmente
-      console.log(`[Webhook] Respuesta rápida vía TwiML a ${numeroTelefono}`);
-      responderATwilio(generarRespuestaTwiML(respuestaIA));
+      console.log(`[Webhook] Respuesta rápida vía TwiML a ${numeroTelefono}${imagenes.length ? ` con ${imagenes.length} imagen(es)` : ''}`);
+      responderATwilio(generarRespuestaTwiML(textoRespuesta, imagenes));
     } else {
       // Respuesta lenta: Twilio ya fue liberado, enviar por REST API
       console.log(`[Webhook] Respuesta tardía vía REST API a ${numeroTelefono}`);
-      await enviarMensajeWhatsApp(numeroTelefono, respuestaIA);
+      await enviarMensajeWhatsApp(numeroTelefono, textoRespuesta, imagenes);
     }
 
   } catch (error) {

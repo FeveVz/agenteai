@@ -76,17 +76,41 @@ function validarFirmaTwilio(req) {
 /**
  * Genera una respuesta TwiML válida para Twilio WhatsApp
  */
-function generarRespuestaTwiML(mensaje) {
-  const mensajeEscapado = mensaje
+function escaparXML(texto) {
+  return String(texto)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/**
+ * Genera una respuesta TwiML válida para Twilio WhatsApp.
+ *
+ * WhatsApp admite una sola imagen por mensaje, así que cada imagen extra
+ * va en su propio <Message>. El texto viaja en el primero.
+ */
+function generarRespuestaTwiML(mensaje, imagenes = []) {
+  const cuerpo = escaparXML(mensaje);
+  const urls = (imagenes || []).filter(Boolean);
+
+  if (urls.length === 0) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Message><Body>${cuerpo}</Body></Message>
+</Response>`;
+  }
+
+  const mensajes = urls.map((url, i) => (
+    i === 0
+      ? `  <Message><Body>${cuerpo}</Body><Media>${escaparXML(url)}</Media></Message>`
+      : `  <Message><Media>${escaparXML(url)}</Media></Message>`
+  ));
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message><Body>${mensajeEscapado}</Body></Message>
+${mensajes.join('\n')}
 </Response>`;
 }
 
@@ -95,7 +119,7 @@ const TWIML_VACIO = '<?xml version="1.0" encoding="UTF-8"?><Response/>';
 /**
  * Envía un mensaje WhatsApp vía Twilio REST API (para respuestas asíncronas)
  */
-async function enviarMensajeWhatsApp(numeroDestino, mensaje) {
+async function enviarMensajeWhatsApp(numeroDestino, mensaje, imagenes = []) {
   const client = obtenerClienteTwilio();
   if (!client) {
     console.error('[Twilio] No se puede enviar: faltan TWILIO_ACCOUNT_SID o TWILIO_AUTH_TOKEN');
@@ -106,13 +130,30 @@ async function enviarMensajeWhatsApp(numeroDestino, mensaje) {
     console.error('[Twilio] No se puede enviar: falta TWILIO_WHATSAPP_FROM');
     return false;
   }
+
+  const to = `whatsapp:${numeroDestino}`;
+  const urls = (imagenes || []).filter(Boolean);
+
   try {
+    // El texto va primero, con la primera imagen adjunta si la hay.
     await client.messages.create({
       from,
-      to: `whatsapp:${numeroDestino}`,
+      to,
       body: mensaje,
+      ...(urls.length > 0 ? { mediaUrl: [urls[0]] } : {}),
     });
-    console.log(`[Twilio] Mensaje enviado vía REST API a ${numeroDestino}`);
+
+    // WhatsApp acepta una imagen por mensaje: el resto va en mensajes aparte.
+    // Si alguna falla no cortamos: el cliente ya recibió el texto y las previas.
+    for (const url of urls.slice(1)) {
+      try {
+        await client.messages.create({ from, to, mediaUrl: [url] });
+      } catch (err) {
+        console.error(`[Twilio] No se pudo enviar la imagen ${url}:`, err.message);
+      }
+    }
+
+    console.log(`[Twilio] Mensaje enviado vía REST API a ${numeroDestino}${urls.length ? ` con ${urls.length} imagen(es)` : ''}`);
     return true;
   } catch (err) {
     console.error('[Twilio] Error al enviar vía REST API:', err.message);

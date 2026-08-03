@@ -31,6 +31,21 @@ const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
+      name: 'enviar_fotos_proyecto',
+      description: 'Envía por WhatsApp las fotos, planos o renders de un proyecto. Usar cuando el cliente pide ver imágenes, fotos, el plano, cómo se ve el proyecto, o cuando mostrar una imagen ayuda a que se decida a visitarlo.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nombre_proyecto: { type: 'string', description: 'Nombre exacto del proyecto cuyas imágenes enviar.' },
+          maximo: { type: 'integer', description: 'Cuántas imágenes enviar como máximo. Por defecto 3. Nunca más de 5 para no saturar el chat.' },
+        },
+        required: ['nombre_proyecto'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'consultar_disponibilidad',
       description: 'Consulta los horarios disponibles para agendar una visita en una fecha específica.',
       parameters: {
@@ -107,10 +122,66 @@ const HERRAMIENTAS = [
 
 // ── Ejecución de herramientas contra Supabase ─────────────────────────────────
 
-async function ejecutarHerramienta(nombre, argumentos) {
+/**
+ * Parsea el campo `imagenes`: una URL por línea, con descripción opcional
+ * tras " | ". Descarta lo que no sea una URL http(s) — Twilio solo acepta
+ * URLs públicas, y una entrada mal escrita haría fallar el envío entero.
+ */
+function parsearImagenes(texto) {
+  if (!texto) return [];
+  return texto
+    .split('\n')
+    .map(linea => {
+      const [url, descripcion] = linea.split('|').map(p => (p || '').trim());
+      return { url, descripcion: descripcion || null };
+    })
+    .filter(img => /^https?:\/\/\S+$/i.test(img.url));
+}
+
+/**
+ * @param contexto  Acumula efectos que no viajan en el texto de la respuesta,
+ *                  como las imágenes que el webhook tiene que adjuntar.
+ */
+async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
   const supabase = obtenerSupabase();
 
   switch (nombre) {
+    case 'enviar_fotos_proyecto': {
+      const { nombre_proyecto, maximo } = argumentos;
+      const tope = Math.min(Math.max(Number(maximo) || 3, 1), 5);
+
+      const { data: encontrados } = await supabase
+        .from('proyectos')
+        .select('nombre, imagenes')
+        .ilike('nombre', `%${nombre_proyecto}%`)
+        .eq('activo', true)
+        .limit(1);
+
+      if (!encontrados || encontrados.length === 0) {
+        return { exito: false, mensaje: `No encontré un proyecto llamado "${nombre_proyecto}".` };
+      }
+
+      const proyecto = encontrados[0];
+      const imagenes = parsearImagenes(proyecto.imagenes).slice(0, tope);
+
+      if (imagenes.length === 0) {
+        return {
+          exito: false,
+          mensaje: `Todavía no hay imágenes cargadas de ${proyecto.nombre}. NO inventes ni describas fotos que no viste: ofrecé agendar una visita para que lo vea en persona, o que un asesor se las envíe.`,
+        };
+      }
+
+      contexto.imagenes = (contexto.imagenes || []).concat(imagenes.map(i => i.url));
+
+      return {
+        exito: true,
+        proyecto: proyecto.nombre,
+        enviadas: imagenes.length,
+        detalle: imagenes.map(i => i.descripcion).filter(Boolean),
+        mensaje: `Se están enviando ${imagenes.length} imagen(es) de ${proyecto.nombre} por WhatsApp. Acompañalas con un mensaje corto que las presente; no las describas en detalle porque el cliente las va a ver.`,
+      };
+    }
+
     case 'consultar_proyectos': {
       const { nombre: nombreProyecto } = argumentos;
 
@@ -148,6 +219,12 @@ async function ejecutarHerramienta(nombre, argumentos) {
         if (p.financiamiento) salida.financiamiento = p.financiamiento;
         if (p.estado_comercial) salida.estado_comercial = p.estado_comercial;
         if (p.entrega_titulo) salida.entrega_titulo = p.entrega_titulo;
+
+        const fotos = parsearImagenes(p.imagenes);
+        if (fotos.length > 0) {
+          salida.fotos_disponibles = fotos.length;
+          salida.fotos_de = fotos.map(f => f.descripcion).filter(Boolean);
+        }
         if (!p.entrega_titulo) {
           salida.nota_titulo = 'No hay dato cargado sobre la entrega del título de este proyecto. NO afirmes que ya tiene título: decí que un asesor te confirma la fecha exacta.';
         }
@@ -430,6 +507,7 @@ Reglas importantes:
 - NUNCA inventes precios, metrajes, cuotas, plazos ni disponibilidad de lotes. Es información sensible de una compra grande; un dato inventado puede costarle dinero al cliente y a la empresa.
 - TÍTULO DE PROPIEDAD: no todos los proyectos tienen el título entregado hoy. La mayoría está en PRE-VENTA y el título llega más adelante. Nunca digas que un proyecto "ya tiene título" salvo que su campo entrega_titulo lo diga explícitamente. Si no hay dato, decí que un asesor confirma la fecha exacta.
 - LA PRE-VENTA ES UNA VENTAJA, presentala así con naturalidad: es la etapa de precio más bajo de todo el proyecto, con el mayor potencial de revalorización, y permite elegir entre los mejores lotes antes de que se vendan. Además el respaldo está desde el día uno: partida registral, empresa inscrita y contrato firmado. Nunca la presentes como una limitación ni pidas disculpas por ella, pero tampoco la disfraces: si preguntan cuándo llega el título, dalo con claridad.
+- FOTOS: si el cliente pide ver el proyecto, fotos, el plano o cómo se ve, usá enviar_fotos_proyecto. También ofrecelas por tu cuenta cuando ayuden a que se entusiasme y agende la visita. Mandá 2 o 3, no más. Nunca describas una foto que no enviaste ni afirmes que mandaste algo si la herramienta te dijo que no hay imágenes cargadas.
 - CONSULTAR VISITAS: si el cliente menciona que ya tiene una visita agendada, que quiere cambiarla o cancelarla, SIEMPRE llamá primero a ver_visitas_cliente antes de responder. Nunca asumas.
 - ANTES de llamar a agendar_visita necesitás confirmados: nombre completo real del cliente, fecha y hora, y proyecto a visitar. Si falta alguno, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]".
 - Si el cliente solo dice una hora sin dar su nombre, pedile el nombre ANTES de confirmar.
@@ -447,6 +525,10 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
 
   const nombresProyectos = await obtenerNombresProyectos();
   const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos);
+
+  // Efectos que no viajan en el texto: las herramientas lo van llenando y el
+  // webhook lo usa para adjuntar media al mensaje de WhatsApp.
+  const contexto = { imagenes: [] };
 
   const mensajes = [{ role: 'system', content: systemPrompt }];
 
@@ -480,7 +562,7 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
       try { args = JSON.parse(toolCall.function.arguments); } catch { /* args vacíos */ }
 
       console.log(`[OpenAI] → ${toolCall.function.name}`, args);
-      const resultado = await ejecutarHerramienta(toolCall.function.name, args);
+      const resultado = await ejecutarHerramienta(toolCall.function.name, args, contexto);
       console.log(`[OpenAI] ← Resultado:`, resultado);
 
       mensajes.push({
@@ -503,7 +585,11 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
   }
 
   const nombreEmpresa = config.nombre_agencia || 'Ceinys';
-  return mensaje.content || `¡Hola! Soy Valeria de ${nombreEmpresa}. ¿Buscás un lote o una casa? Contame qué tenés en mente.`;
+  const texto = mensaje.content || `¡Hola! Soy Valeria de ${nombreEmpresa}. ¿Buscás un lote o una casa? Contame qué tenés en mente.`;
+
+  // Sin duplicados: si el modelo pide las fotos del mismo proyecto dos veces
+  // en el mismo turno, el cliente recibiría la imagen repetida.
+  return { texto, imagenes: [...new Set(contexto.imagenes)] };
 }
 
 module.exports = { procesarMensajeConIA };
