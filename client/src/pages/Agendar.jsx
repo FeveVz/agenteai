@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -92,9 +93,7 @@ function Calendario({ mes, onCambiarMes, seleccionada, onSeleccionar, minima, ma
 }
 
 export default function Agendar() {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  const proyectoInicial = params.get('p') || '';
+  const { codigo } = useParams();
 
   const minima = useMemo(() => hoyEnPeru(), []);
   const maxima = useMemo(() => {
@@ -109,7 +108,7 @@ export default function Agendar() {
   const [fecha, setFecha] = useState('');
   const [horarios, setHorarios] = useState(null);
   const [hora, setHora] = useState('');
-  const [proyecto, setProyecto] = useState(proyectoInicial);
+  const [proyecto, setProyecto] = useState('');
   const [nombre, setNombre] = useState('');
   const [notas, setNotas] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -117,40 +116,42 @@ export default function Agendar() {
   const [confirmada, setConfirmada] = useState(null);
 
   useEffect(() => {
-    if (!token) { setErrorInicial('Falta el enlace personal. Pedile uno a Valeria por WhatsApp.'); return; }
-    fetch(`/api/agenda/contexto?token=${encodeURIComponent(token)}`)
+    if (!codigo) { setErrorInicial('Falta el enlace personal. Pedile uno a Valeria por WhatsApp.'); return; }
+    fetch(`/api/agenda/${encodeURIComponent(codigo)}/contexto`)
       .then(async r => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'No pudimos abrir la agenda.');
         setContexto(d);
-        // Si el proyecto del link no coincide con ninguno real, que elija
-        if (proyectoInicial && !d.proyectos.includes(proyectoInicial)) setProyecto('');
+        // Preseleccionar el proyecto que venía en el enlace, si sigue activo
+        if (d.proyecto_sugerido && d.proyectos.includes(d.proyecto_sugerido)) {
+          setProyecto(d.proyecto_sugerido);
+        }
       })
       .catch(e => setErrorInicial(e.message));
-  }, [token, proyectoInicial]);
+  }, [codigo]);
 
   useEffect(() => {
-    if (!fecha || !token) return;
+    if (!fecha || !codigo) return;
     setHorarios(null);
     setHora('');
-    fetch(`/api/agenda/disponibilidad?token=${encodeURIComponent(token)}&fecha=${fecha}`)
+    fetch(`/api/agenda/${encodeURIComponent(codigo)}/disponibilidad?fecha=${fecha}`)
       .then(async r => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'No pudimos cargar los horarios.');
         setHorarios(d.libres);
       })
       .catch(e => { setHorarios([]); setError(e.message); });
-  }, [fecha, token]);
+  }, [fecha, codigo]);
 
   async function reservar(e) {
     e.preventDefault();
     setEnviando(true);
     setError('');
     try {
-      const r = await fetch('/api/agenda/reservar', {
+      const r = await fetch(`/api/agenda/${encodeURIComponent(codigo)}/reservar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, nombre, fecha, hora, proyecto, notas }),
+        body: JSON.stringify({ nombre, fecha, hora, proyecto, notas }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'No pudimos confirmar la visita.');

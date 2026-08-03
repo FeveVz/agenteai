@@ -11,63 +11,97 @@ const {
 const router = express.Router();
 
 // La página de agenda es pública: la abre el cliente desde WhatsApp y no puede
-// pedirle contraseña. Lo que la protege es un token firmado que Valeria genera
-// con el número del cliente adentro. Sin token válido no se puede reservar ni
-// ver disponibilidad, así que la URL no sirve para spamear la agenda.
+// pedirle contraseña. Lo que la protege es un código corto y aleatorio guardado
+// en la tabla enlaces_agenda, con el número del cliente asociado y vencimiento.
+// Sin un código válido no se ve disponibilidad ni se puede reservar.
 const VALIDEZ_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
-function secreto() {
-  // Ambas existen en producción; PANEL_PASSWORD tiene prioridad.
-  return process.env.PANEL_PASSWORD || process.env.SUPABASE_SERVICE_KEY || 'sin-secreto';
+// Sin caracteres ambiguos (0/O, 1/l/I) por si alguien lo dicta o lo escribe a mano.
+const ALFABETO = '23456789abcdefghjkmnpqrstuvwxyz';
+const LARGO_CODIGO = 7; // 31^7 ≈ 2.7e10 combinaciones
+
+function generarCodigo() {
+  const bytes = crypto.randomBytes(LARGO_CODIGO);
+  let codigo = '';
+  for (let i = 0; i < LARGO_CODIGO; i++) codigo += ALFABETO[bytes[i] % ALFABETO.length];
+  return codigo;
 }
 
-function b64url(txt) {
-  return Buffer.from(txt, 'utf8').toString('base64url');
+/**
+ * Crea el enlace y lo guarda. Reintenta si el código ya existía — con 2.7e10
+ * combinaciones es rarísimo, pero la colisión silenciosa daría el enlace de
+ * otro cliente, así que no se deja al azar.
+ */
+async function crearEnlaceAgenda(telefono, proyecto) {
+  const supabase = obtenerSupabase();
+  const expira = new Date(Date.now() + VALIDEZ_MS).toISOString();
+
+  for (let intento = 0; intento < 5; intento++) {
+    const codigo = generarCodigo();
+    const { error } = await supabase
+      .from('enlaces_agenda')
+      .insert({ codigo, numero_telefono: telefono, proyecto: proyecto || null, expira_en: expira });
+
+    if (!error) return codigo;
+    if (error.code !== '23505') throw error; // 23505 = clave duplicada
+  }
+  throw new Error('No se pudo generar un código de enlace único.');
 }
 
-function firmar(payload) {
-  return crypto.createHmac('sha256', secreto()).update(payload).digest('base64url');
+// Límite de intentos de resolución por IP: hace inviable adivinar códigos
+const intentosPorIP = new Map();
+const MAX_INTENTOS_IP = 40;
+const VENTANA_IP_MS = 10 * 60 * 1000;
+
+function demasiadosIntentos(ip) {
+  const ahora = Date.now();
+  const reg = intentosPorIP.get(ip);
+  if (!reg || ahora - reg.inicio > VENTANA_IP_MS) {
+    intentosPorIP.set(ip, { conteo: 1, inicio: ahora });
+    return false;
+  }
+  reg.conteo++;
+  return reg.conteo > MAX_INTENTOS_IP;
 }
 
-function crearTokenAgenda(telefono) {
-  const cuerpo = `${b64url(telefono)}.${Date.now() + VALIDEZ_MS}`;
-  return `${cuerpo}.${firmar(cuerpo)}`;
-}
+/** Middleware: resuelve el código y deja el teléfono en req.telefonoCliente. */
+async function requiereCodigoAgenda(req, res, next) {
+  const codigo = req.params.codigo || req.query.codigo || (req.body && req.body.codigo);
+  const ip = req.ip || 'desconocida';
 
-function leerToken(token) {
-  if (!token || typeof token !== 'string') return null;
+  if (demasiadosIntentos(ip)) {
+    return res.status(429).json({ error: 'Demasiados intentos. Esperá unos minutos.' });
+  }
 
-  const partes = token.split('.');
-  if (partes.length !== 3) return null;
-
-  const [telefonoB64, expiraStr, firma] = partes;
-  const cuerpo = `${telefonoB64}.${expiraStr}`;
-
-  const esperada = Buffer.from(firmar(cuerpo));
-  const recibida = Buffer.from(firma);
-  if (esperada.length !== recibida.length || !crypto.timingSafeEqual(esperada, recibida)) return null;
-
-  if (!Number.isFinite(Number(expiraStr)) || Date.now() > Number(expiraStr)) return null;
+  if (!codigo || !/^[a-z0-9]{4,16}$/.test(String(codigo))) {
+    return res.status(401).json({ error: 'Este enlace no es válido. Pedile uno nuevo a Valeria por WhatsApp.' });
+  }
 
   try {
-    return Buffer.from(telefonoB64, 'base64url').toString('utf8');
+    const supabase = obtenerSupabase();
+    const { data: enlace } = await supabase
+      .from('enlaces_agenda')
+      .select('numero_telefono, proyecto, expira_en')
+      .eq('codigo', String(codigo))
+      .limit(1)
+      .single();
+
+    if (!enlace) {
+      return res.status(401).json({ error: 'Este enlace no es válido. Pedile uno nuevo a Valeria por WhatsApp.' });
+    }
+    if (new Date(enlace.expira_en) < new Date()) {
+      return res.status(401).json({ error: 'Este enlace ya venció. Escribinos por WhatsApp y te mandamos uno nuevo.' });
+    }
+
+    req.telefonoCliente = enlace.numero_telefono;
+    req.proyectoSugerido = enlace.proyecto;
+    next();
   } catch {
-    return null;
+    return res.status(401).json({ error: 'Este enlace no es válido. Pedile uno nuevo a Valeria por WhatsApp.' });
   }
 }
 
-/** Middleware: deja el teléfono del token en req.telefonoCliente. */
-function requiereTokenAgenda(req, res, next) {
-  const token = req.query.token || (req.body && req.body.token);
-  const telefono = leerToken(token);
-
-  if (!telefono) {
-    return res.status(401).json({ error: 'Este enlace no es válido o ya venció. Pedile uno nuevo a Valeria por WhatsApp.' });
-  }
-
-  req.telefonoCliente = telefono;
-  next();
-}
+const requiereTokenAgenda = requiereCodigoAgenda;
 
 // Límite de reservas por número, para que un token filtrado no llene la agenda
 const reservasPorNumero = new Map();
@@ -92,7 +126,7 @@ function esFechaValida(f) {
 // ── GET /api/agenda/contexto ─────────────────────────────────────────────────
 // Datos para pintar la página. No devuelve el teléfono completo ni datos de
 // otros clientes: solo lo necesario para elegir proyecto y fecha.
-router.get('/contexto', requiereTokenAgenda, async (req, res) => {
+router.get('/:codigo/contexto', requiereCodigoAgenda, async (req, res) => {
   try {
     const supabase = obtenerSupabase();
 
@@ -108,6 +142,7 @@ router.get('/contexto', requiereTokenAgenda, async (req, res) => {
       telefono_visible: `••••${tel.slice(-4)}`,
       empresa: config?.nombre_agencia || 'Ceinys',
       proyectos: (proyectos || []).map(p => p.nombre),
+      proyecto_sugerido: req.proyectoSugerido || null,
       horario: { apertura: HORA_APERTURA, cierre: HORA_CIERRE, dias: 'Lunes a domingo' },
     });
   } catch (error) {
@@ -118,7 +153,7 @@ router.get('/contexto', requiereTokenAgenda, async (req, res) => {
 
 // ── GET /api/agenda/disponibilidad?fecha=YYYY-MM-DD ──────────────────────────
 // Devuelve solo las horas libres. Nunca quién ocupa las otras.
-router.get('/disponibilidad', requiereTokenAgenda, async (req, res) => {
+router.get('/:codigo/disponibilidad', requiereCodigoAgenda, async (req, res) => {
   const { fecha } = req.query;
 
   if (!esFechaValida(fecha)) {
@@ -157,7 +192,7 @@ router.get('/disponibilidad', requiereTokenAgenda, async (req, res) => {
 });
 
 // ── POST /api/agenda/reservar ────────────────────────────────────────────────
-router.post('/reservar', requiereTokenAgenda, async (req, res) => {
+router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
   const telefono = req.telefonoCliente;
   const { nombre, fecha, hora, proyecto, notas } = req.body || {};
 
@@ -223,4 +258,4 @@ router.post('/reservar', requiereTokenAgenda, async (req, res) => {
   }
 });
 
-module.exports = { router, crearTokenAgenda };
+module.exports = { router, crearEnlaceAgenda };

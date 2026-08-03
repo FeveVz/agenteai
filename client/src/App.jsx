@@ -8,8 +8,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/dashboard" element={<Dashboard />} />
-      {/* Pública: la abre el cliente desde el link que le manda Valeria */}
-      <Route path="/agendar" element={<Agendar />} />
+      {/* Pública: la abre el cliente desde el link corto que manda Valeria */}
+      <Route path="/visita/:codigo" element={<Agendar />} />
     </Routes>
   );
 }

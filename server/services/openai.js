@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const { obtenerSupabase } = require('../db');
 const { calcularHorariosLibres, formatearFechaCompleta } = require('../utils/fechas');
-const { crearTokenAgenda } = require('../routes/agenda');
+const { crearEnlaceAgenda } = require('../routes/agenda');
 
 let clienteOpenAI;
 
@@ -170,13 +170,18 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       }
 
       const base = (process.env.APP_URL || 'https://wspai.vercel.app').replace(/\/+$/, '');
-      const token = crearTokenAgenda(telefono);
-      const params = new URLSearchParams({ token });
-      if (proyecto) params.set('p', proyecto);
+
+      let codigo;
+      try {
+        codigo = await crearEnlaceAgenda(telefono, proyecto);
+      } catch (err) {
+        console.error('[Agenda] No se pudo crear el enlace:', err.message);
+        return { exito: false, mensaje: 'No pude generar el enlace. Pedile los datos por chat y usá agendar_visita.' };
+      }
 
       return {
         exito: true,
-        enlace: `${base}/agendar?${params.toString()}`,
+        enlace: `${base}/visita/${codigo}`,
         mensaje: 'Pasale el enlace tal cual, en una línea aparte para que WhatsApp lo haga clickeable. '
                + 'Decile en una frase corta que ahí elige el día y la hora que le queden cómodos. '
                + 'No le pidas la fecha por chat: el calendario ya se la muestra. El enlace es personal y dura 7 días.',
