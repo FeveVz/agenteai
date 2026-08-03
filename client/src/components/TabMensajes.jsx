@@ -91,7 +91,10 @@ function Burbuja({ mensaje }) {
 export default function TabMensajes() {
   const [numeroActivo, setNumeroActivo] = useState(null);
   const contenedorMensajes = useRef(null);
-  const numeroPrevio = useRef(null);
+  // Número para el que ya bajamos al último mensaje. No alcanza con comparar
+  // el número activo: el efecto corre una primera vez con la conversación
+  // todavía vacía, y ahí bajar no sirve de nada.
+  const yaBajoPara = useRef(null);
 
   const { data: dataConvs, isLoading: cargandoConvs, isError, error } = useQuery({
     queryKey: ['conversaciones'],
@@ -121,15 +124,18 @@ export default function TabMensajes() {
   // página entera saltaba al fondo al abrir la pestaña.
   useEffect(() => {
     const cont = contenedorMensajes.current;
-    if (!cont) return;
+    if (!cont || mensajes.length === 0) return;
 
-    const cambioDeChat = numeroPrevio.current !== numeroActivo;
-    numeroPrevio.current = numeroActivo;
-
-    // Al abrir un chat siempre vamos al último mensaje. Pero si el usuario
-    // subió a leer el historial, el refresco de 5s no lo arrastra de vuelta.
+    // Primera vez que este chat tiene mensajes en pantalla: al final.
+    const primeraCarga = yaBajoPara.current !== numeroActivo;
+    // Después solo seguimos al último mensaje si ya estaba abajo: si el
+    // usuario subió a leer historial, el refresco de 5s no lo arrastra.
     const cercaDelFinal = cont.scrollHeight - cont.scrollTop - cont.clientHeight < 120;
-    if (cambioDeChat || cercaDelFinal) cont.scrollTop = cont.scrollHeight;
+
+    if (primeraCarga || cercaDelFinal) {
+      cont.scrollTop = cont.scrollHeight;
+      yaBajoPara.current = numeroActivo;
+    }
   }, [mensajes.length, numeroActivo]);
 
   if (isError) {
@@ -158,7 +164,9 @@ export default function TabMensajes() {
 
       <div className="grid md:grid-cols-[300px_1fr] h-[600px]">
         {/* Lista de chats */}
-        <aside className="border-r border-gray-200 overflow-y-auto">
+        {/* min-h-0 es imprescindible: sin eso el item de grid crece con el
+            contenido en vez de scrollear (min-height:auto por defecto). */}
+        <aside className="border-r border-gray-200 overflow-y-auto min-h-0">
           {cargandoConvs && <Spinner texto="Cargando..." className="h-40" />}
 
           {!cargandoConvs && conversaciones.length === 0 && (
@@ -186,7 +194,7 @@ export default function TabMensajes() {
         </aside>
 
         {/* Conversación */}
-        <section className="flex flex-col bg-gray-50 min-w-0">
+        <section className="flex flex-col bg-gray-50 min-w-0 min-h-0">
           {!numeroActivo && (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-400">
               <p className="text-4xl">👈</p>
@@ -196,7 +204,7 @@ export default function TabMensajes() {
 
           {numeroActivo && (
             <>
-              <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-3">
+              <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-3 flex-shrink-0">
                 <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-sm">📱</div>
                 <div className="min-w-0">
                   <p className="font-bold text-gray-900 text-sm truncate">{numeroActivo}</p>
@@ -204,7 +212,7 @@ export default function TabMensajes() {
                 </div>
               </div>
 
-              <div ref={contenedorMensajes} className="flex-1 overflow-y-auto p-5 space-y-3">
+              <div ref={contenedorMensajes} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
                 {cargandoChat && mensajes.length === 0 && <Spinner texto="Cargando conversación..." className="h-32" />}
 
                 {mensajes.map((m, i) => {
