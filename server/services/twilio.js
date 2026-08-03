@@ -10,15 +10,33 @@ function obtenerClienteTwilio() {
 }
 
 /**
- * Reconstruye la URL pública exacta que Twilio usó para llamar al webhook.
- * Detrás del proxy de Vercel, req.protocol y req.host no sirven: hay que
- * leer las cabeceras x-forwarded-*. Twilio firma la URL completa, así que
- * si esto no coincide carácter por carácter, la firma no valida.
+ * Reconstruye las URLs candidatas que Twilio pudo haber firmado.
+ *
+ * Twilio firma la URL exacta que invocó, así que si no coincide carácter por
+ * carácter la firma no valida. Hay dos complicaciones:
+ *
+ * 1. Detrás del proxy de Vercel, req.protocol y req.host no sirven: hay que
+ *    leer las cabeceras x-forwarded-*.
+ * 2. El rewrite de vercel.json ("/api/:path*" → "/api/index.js") NO usa :path
+ *    en el destino, así que Vercel lo agrega como query string. La request
+ *    llega como "/api/webhook/whatsapp?path=webhook/whatsapp" aunque Twilio
+ *    haya llamado a "/api/webhook/whatsapp" a secas.
+ *
+ * Por eso probamos la ruta sin query (producción en Vercel) y la URL tal cual
+ * llegó (desarrollo local, donde no hay rewrite). Probar ambas no debilita la
+ * validación: siguen siendo URLs derivadas de la request real, y falsificar el
+ * HMAC de cualquiera de las dos requiere el auth token igual.
  */
-function urlPublicaDeLaRequest(req) {
+function urlsCandidatas(req) {
   const protocolo = req.get('x-forwarded-proto') || req.protocol || 'https';
   const host = req.get('x-forwarded-host') || req.get('host');
-  return `${protocolo}://${host}${req.originalUrl}`;
+  const base = `${protocolo}://${host}`;
+  const completa = req.originalUrl || req.url || '';
+
+  return [...new Set([
+    `${base}${completa.split('?')[0]}`,
+    `${base}${completa}`,
+  ])];
 }
 
 /**
@@ -36,18 +54,22 @@ function validarFirmaTwilio(req) {
     return { valida: true, motivo: 'sin_token' };
   }
 
-  const url = urlPublicaDeLaRequest(req);
+  const candidatas = urlsCandidatas(req);
 
   const firma = req.get('x-twilio-signature');
   if (!firma) {
-    return { valida: false, motivo: 'falta_cabecera', url };
+    return { valida: false, motivo: 'falta_cabecera', url: candidatas.join(' | ') };
   }
 
   try {
-    const ok = twilio.validateRequest(authToken, firma, url, req.body || {});
-    return { valida: ok, motivo: ok ? 'ok' : 'firma_no_coincide', url };
+    for (const url of candidatas) {
+      if (twilio.validateRequest(authToken, firma, url, req.body || {})) {
+        return { valida: true, motivo: 'ok', url };
+      }
+    }
+    return { valida: false, motivo: 'firma_no_coincide', url: candidatas.join(' | ') };
   } catch (err) {
-    return { valida: false, motivo: `error_validando: ${err.message}`, url };
+    return { valida: false, motivo: `error_validando: ${err.message}`, url: candidatas.join(' | ') };
   }
 }
 
