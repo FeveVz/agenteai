@@ -91,6 +91,8 @@ export async function iniciarSesion(password) {
 // ── Datos ─────────────────────────────────────────────────────────────────────
 
 export const obtenerMensajes = () => pedir('/mensajes');
+export const obtenerConversaciones = () => pedir('/mensajes/conversaciones');
+export const obtenerConversacion = (numero) => pedir(`/mensajes/${encodeURIComponent(numero)}`);
 export const obtenerVisitas = () => pedir('/visitas');
 export const obtenerVisitasPorFecha = (fecha) => pedir(`/visitas/${fecha}`);
 export const obtenerProyectos = () => pedir('/proyectos');
