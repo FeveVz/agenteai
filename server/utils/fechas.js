@@ -29,14 +29,21 @@ function formatearHora(fechaISO) {
   return `${hora}:${minutos}`;
 }
 
+// Horario de atención para visitas: de lunes a domingo, 09:00 a 17:00.
+// Un solo lugar para cambiarlo — lo usan el agente, el link de agenda y el panel.
+const HORA_APERTURA = 9;
+const HORA_CIERRE = 17;
+const MINUTOS_POR_SLOT = 30;
+
 /**
- * Genera todos los horarios de visita de un día (9:00 a 18:00, cada 30 min)
+ * Genera todos los horarios de visita de un día (09:00 a 17:00, cada 30 min).
+ * El último turno es a las 17:00 inclusive.
  */
 function generarHorariosDelDia() {
   const horarios = [];
-  for (let hora = 9; hora < 18; hora++) {
+  for (let hora = HORA_APERTURA; hora <= HORA_CIERRE; hora++) {
     horarios.push(`${String(hora).padStart(2, '0')}:00`);
-    horarios.push(`${String(hora).padStart(2, '0')}:30`);
+    if (hora < HORA_CIERRE) horarios.push(`${String(hora).padStart(2, '0')}:${MINUTOS_POR_SLOT}`);
   }
   return horarios;
 }
@@ -73,6 +80,8 @@ function formatearTimestamp(timestamp) {
 }
 
 module.exports = {
+  HORA_APERTURA,
+  HORA_CIERRE,
   formatearFechaCompleta,
   formatearHora,
   generarHorariosDelDia,

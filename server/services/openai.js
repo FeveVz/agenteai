@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const { obtenerSupabase } = require('../db');
 const { calcularHorariosLibres, formatearFechaCompleta } = require('../utils/fechas');
+const { crearTokenAgenda } = require('../routes/agenda');
 
 let clienteOpenAI;
 
@@ -23,6 +24,20 @@ const HERRAMIENTAS = [
         type: 'object',
         properties: {
           nombre: { type: 'string', description: 'Nombre del proyecto a consultar. Omitir para traer todos. Ej: "Altos de Sacta"' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'enviar_link_agenda',
+      description: 'Genera un enlace personal para que el cliente elija fecha y horario en un calendario, y agende su visita solo. Es la forma preferida de agendar: mucho más cómoda que pedirle la fecha por chat. Usarla apenas el cliente muestre intención de visitar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          proyecto: { type: 'string', description: 'Proyecto que le interesa, si ya lo definió. Opcional: el calendario lo deja elegir.' },
         },
         required: [],
       },
@@ -146,6 +161,28 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
   const supabase = obtenerSupabase();
 
   switch (nombre) {
+    case 'enviar_link_agenda': {
+      const { proyecto } = argumentos;
+      const telefono = contexto.numeroTelefono;
+
+      if (!telefono) {
+        return { exito: false, mensaje: 'No pude generar el enlace. Pedile los datos por chat y usá agendar_visita.' };
+      }
+
+      const base = (process.env.APP_URL || 'https://wspai.vercel.app').replace(/\/+$/, '');
+      const token = crearTokenAgenda(telefono);
+      const params = new URLSearchParams({ token });
+      if (proyecto) params.set('p', proyecto);
+
+      return {
+        exito: true,
+        enlace: `${base}/agendar?${params.toString()}`,
+        mensaje: 'Pasale el enlace tal cual, en una línea aparte para que WhatsApp lo haga clickeable. '
+               + 'Decile en una frase corta que ahí elige el día y la hora que le queden cómodos. '
+               + 'No le pidas la fecha por chat: el calendario ya se la muestra. El enlace es personal y dura 7 días.',
+      };
+    }
+
     case 'enviar_fotos_proyecto': {
       const { nombre_proyecto, maximo } = argumentos;
       const tope = Math.min(Math.max(Number(maximo) || 3, 1), 5);
@@ -509,9 +546,10 @@ Reglas importantes:
 - LA PRE-VENTA ES UNA VENTAJA, presentala así con naturalidad: es la etapa de precio más bajo de todo el proyecto, con el mayor potencial de revalorización, y permite elegir entre los mejores lotes antes de que se vendan. Además el respaldo está desde el día uno: partida registral, empresa inscrita y contrato firmado. Nunca la presentes como una limitación ni pidas disculpas por ella, pero tampoco la disfraces: si preguntan cuándo llega el título, dalo con claridad.
 - FOTOS: si el cliente pide ver el proyecto, fotos, el plano o cómo se ve, usá enviar_fotos_proyecto. También ofrecelas por tu cuenta cuando ayuden a que se entusiasme y agende la visita. Mandá 2 o 3, no más. Nunca describas una foto que no enviaste ni afirmes que mandaste algo si la herramienta te dijo que no hay imágenes cargadas.
 - CONSULTAR VISITAS: si el cliente menciona que ya tiene una visita agendada, que quiere cambiarla o cancelarla, SIEMPRE llamá primero a ver_visitas_cliente antes de responder. Nunca asumas.
-- ANTES de llamar a agendar_visita necesitás confirmados: nombre completo real del cliente, fecha y hora, y proyecto a visitar. Si falta alguno, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]".
+- AGENDAR: la forma preferida es enviar_link_agenda. Apenas el cliente muestre intención de visitar, mandale el enlace: ahí ve un calendario con los días y horarios libres y reserva solo, sin tener que escribir fechas por chat. Es mucho más cómodo para él y evita malentendidos.
+- Usá agendar_visita solo si el cliente no quiere o no puede abrir el enlace, o si ya te dio fecha y hora concretas por chat. En ese caso necesitás confirmados: nombre completo real, fecha y hora, y proyecto. Si falta alguno, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]".
 - Si el cliente solo dice una hora sin dar su nombre, pedile el nombre ANTES de confirmar.
-- Las visitas se agendan de 9:00 a 18:00, cada 30 minutos.
+- Las visitas son de lunes a domingo, de 09:00 a 17:00, cada 30 minutos.
 - No prometas separaciones, descuentos, reservas de lote ni condiciones especiales: eso lo confirma un asesor.
 - Usá español latinoamericano neutro, profesional pero cercano.
 - Si no podés resolver algo, decile que un asesor de ${nombreEmpresa} lo va a contactar${config.email ? ` o que escriba a ${config.email}` : ''}.`;
@@ -528,7 +566,7 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
 
   // Efectos que no viajan en el texto: las herramientas lo van llenando y el
   // webhook lo usa para adjuntar media al mensaje de WhatsApp.
-  const contexto = { imagenes: [] };
+  const contexto = { imagenes: [], numeroTelefono };
 
   const mensajes = [{ role: 'system', content: systemPrompt }];
 

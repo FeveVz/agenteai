@@ -8,6 +8,7 @@ const visitasRouter = require('./routes/visitas');
 const proyectosRouter = require('./routes/proyectos');
 const configuracionRouter = require('./routes/configuracion');
 const authRouter = require('./routes/auth');
+const { router: agendaRouter } = require('./routes/agenda');
 const { requiereAuth, proteccionActiva } = require('./middleware/auth');
 const { obtenerSupabase } = require('./db');
 
@@ -31,6 +32,10 @@ app.use((req, _res, next) => {
 // Twilio no puede mandar cabeceras Authorization.
 app.use('/api/webhook', webhookRouter);
 app.use('/api/auth', authRouter);
+
+// Agenda pública: la abre el cliente desde el link que le manda Valeria.
+// Se protege con un token firmado, no con el login del panel.
+app.use('/api/agenda', agendaRouter);
 
 // Diagnóstico. No expone datos: solo si las piezas están conectadas.
 app.get('/api/health', async (_req, res) => {
