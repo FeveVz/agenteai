@@ -217,7 +217,7 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
 
     // El proyecto tiene que existir de verdad
     const { data: valido } = await supabase
-      .from('proyectos').select('nombre').ilike('nombre', proyecto).eq('activo', true).limit(1);
+      .from('proyectos').select('nombre, mapa_url').ilike('nombre', proyecto).eq('activo', true).limit(1);
 
     if (!valido || valido.length === 0) {
       return res.status(400).json({ error: 'Ese proyecto no está disponible.' });
@@ -254,10 +254,19 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
       .from('configuracion_agencia').select('email_alertas').limit(1).single();
     await enviarAlertaVisita({ ...visita, origen: 'link' }, config);
 
+    // Solo http/https: este enlace va directo a un href en la confirmación
+    const mapa = valido[0].mapa_url;
+    const mapaSeguro = typeof mapa === 'string' && /^https?:\/\/\S+$/i.test(mapa.trim()) ? mapa.trim() : null;
+
     res.json({
       ok: true,
       mensaje: `¡Listo! Tu visita a ${valido[0].nombre} quedó confirmada para el ${formatearFechaCompleta(fechaVisita)}.`,
-      visita: { id: visita.id, proyecto: valido[0].nombre, fecha: formatearFechaCompleta(fechaVisita) },
+      visita: {
+        id: visita.id,
+        proyecto: valido[0].nombre,
+        fecha: formatearFechaCompleta(fechaVisita),
+        mapa_url: mapaSeguro,
+      },
     });
   } catch (error) {
     console.error('[Agenda] Error al reservar:', error);

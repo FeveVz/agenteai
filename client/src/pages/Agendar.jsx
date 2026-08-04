@@ -193,6 +193,18 @@ export default function Agendar() {
           <h1 className="text-xl font-bold text-gray-900 mb-2">¡Visita confirmada!</h1>
           <p className="text-gray-600 mb-1 font-medium">{confirmada.proyecto}</p>
           <p className="text-sm text-gray-500 mb-6">{confirmada.fecha}</p>
+
+          {confirmada.mapa_url && (
+            <a
+              href={confirmada.mapa_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full bg-ceinys-blue hover:bg-ceinys-blue-light text-white font-bold py-3 rounded-xl transition-all mb-5"
+            >
+              📍 Cómo llegar
+            </a>
+          )}
+
           <p className="text-xs text-gray-400">
             Te esperamos. Si necesitás cambiarla, escribinos por WhatsApp.
           </p>

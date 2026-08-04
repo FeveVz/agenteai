@@ -7,7 +7,7 @@ const router = express.Router();
 const CAMPOS_EDITABLES = [
   'nombre', 'ubicacion', 'tipo', 'descripcion', 'precio_desde',
   'area_desde', 'caracteristicas', 'financiamiento', 'activo', 'orden',
-  'estado_comercial', 'entrega_titulo', 'imagenes',
+  'estado_comercial', 'entrega_titulo', 'imagenes', 'mapa_url',
 ];
 
 // GET /api/proyectos — Todos los proyectos (incluye inactivos, para el panel)
@@ -37,6 +37,12 @@ router.put('/:id', async (req, res) => {
 
   if (req.body.nombre !== undefined && !String(req.body.nombre).trim()) {
     return res.status(400).json({ error: 'El nombre del proyecto no puede estar vacío.' });
+  }
+
+  // El mapa termina en un href de la pagina de confirmación: solo http/https.
+  const mapa = req.body.mapa_url;
+  if (mapa !== undefined && String(mapa).trim() && !/^https?:\/\/\S+$/i.test(String(mapa).trim())) {
+    return res.status(400).json({ error: 'El enlace del mapa debe empezar con http:// o https://' });
   }
 
   const actualizacion = { actualizado_en: new Date().toISOString() };

@@ -143,6 +143,14 @@ const HERRAMIENTAS = [
  * tras " | ". Descarta lo que no sea una URL http(s) — Twilio solo acepta
  * URLs públicas, y una entrada mal escrita haría fallar el envío entero.
  */
+/**
+ * Solo http/https. Un "javascript:..." guardado por error terminaría en un
+ * href de la página de confirmación, así que se filtra desde el origen.
+ */
+function esUrlSegura(url) {
+  return typeof url === 'string' && /^https?:\/\/\S+$/i.test(url.trim());
+}
+
 function parsearImagenes(texto) {
   if (!texto) return [];
   return texto
@@ -262,6 +270,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         if (p.financiamiento) salida.financiamiento = p.financiamiento;
         if (p.estado_comercial) salida.estado_comercial = p.estado_comercial;
         if (p.entrega_titulo) salida.entrega_titulo = p.entrega_titulo;
+        if (esUrlSegura(p.mapa_url)) salida.mapa_url = p.mapa_url.trim();
 
         const fotos = parsearImagenes(p.imagenes);
         if (fotos.length > 0) {
@@ -556,6 +565,7 @@ Reglas importantes:
 - NUNCA inventes precios, metrajes, cuotas, plazos ni disponibilidad de lotes. Es información sensible de una compra grande; un dato inventado puede costarle dinero al cliente y a la empresa.
 - TÍTULO DE PROPIEDAD: no todos los proyectos tienen el título entregado hoy. La mayoría está en PRE-VENTA y el título llega más adelante. Nunca digas que un proyecto "ya tiene título" salvo que su campo entrega_titulo lo diga explícitamente. Si no hay dato, decí que un asesor confirma la fecha exacta.
 - LA PRE-VENTA ES UNA VENTAJA, presentala así con naturalidad: es la etapa de precio más bajo de todo el proyecto, con el mayor potencial de revalorización, y permite elegir entre los mejores lotes antes de que se vendan. Además el respaldo está desde el día uno: partida registral, empresa inscrita y contrato firmado. Nunca la presentes como una limitación ni pidas disculpas por ella, pero tampoco la disfraces: si preguntan cuándo llega el título, dalo con claridad.
+- UBICACIÓN: si preguntan dónde queda un proyecto o cómo llegar, y consultar_proyectos devolvió mapa_url, pasale ese enlace en una línea aparte para que WhatsApp lo haga clickeable. Si no hay mapa_url cargado, describí la ubicación con lo que sí tenés y ofrecé que un asesor le mande la referencia exacta.
 - FOTOS: si el cliente pide ver el proyecto, fotos, el plano o cómo se ve, usá enviar_fotos_proyecto. También ofrecelas por tu cuenta cuando ayuden a que se entusiasme y agende la visita. Mandá 2 o 3, no más. Nunca describas una foto que no enviaste ni afirmes que mandaste algo si la herramienta te dijo que no hay imágenes cargadas.
 - CONSULTAR VISITAS: si el cliente menciona que ya tiene una visita agendada, que quiere cambiarla o cancelarla, SIEMPRE llamá primero a ver_visitas_cliente antes de responder. Nunca asumas.
 - AGENDAR: la forma preferida es enviar_link_agenda. Apenas el cliente muestre intención de visitar, mandale el enlace: ahí ve un calendario con los días y horarios libres y reserva solo, sin tener que escribir fechas por chat. Es mucho más cómodo para él y evita malentendidos.

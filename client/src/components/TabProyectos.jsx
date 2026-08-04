@@ -97,6 +97,18 @@ function TarjetaProyecto({ proyecto }) {
             <Campo label="Precio desde" name="precio_desde" value={form.precio_desde} onChange={cambiar} placeholder="S/ 25,000" />
             <Campo label="Financiamiento" name="financiamiento" value={form.financiamiento} onChange={cambiar} placeholder="Inicial 20% + 36 cuotas" />
           </div>
+          <Campo
+            label="Enlace de Google Maps"
+            name="mapa_url"
+            value={form.mapa_url}
+            onChange={cambiar}
+            placeholder="https://maps.app.goo.gl/..."
+          />
+          <p className="text-xs text-gray-400 -mt-2">
+            Valeria lo manda cuando preguntan dónde queda, y se le muestra al cliente al confirmar la visita.
+            Sacalo desde Google Maps → Compartir → Copiar vínculo.
+          </p>
+
           <Campo label="Estado comercial" name="estado_comercial" value={form.estado_comercial} onChange={cambiar} placeholder="Pre-venta / En obra / Entregado" />
           <Campo
             label="Entrega del título de propiedad"
