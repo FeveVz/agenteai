@@ -49,6 +49,7 @@ app.get('/api/health', async (_req, res) => {
       twilio_envio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM),
       twilio_firma: Boolean(process.env.TWILIO_AUTH_TOKEN),
       panel_protegido: proteccionActiva(),
+      alertas_email: Boolean(process.env.RESEND_API_KEY),
     },
     base_de_datos: { conectada: false, tablas: {} },
   };

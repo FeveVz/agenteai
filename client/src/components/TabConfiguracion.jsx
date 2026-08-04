@@ -34,6 +34,7 @@ export default function TabConfiguracion() {
     nombre_agencia: '', slogan: '', direccion: '', telefono: '',
     email: '', horarios: '', servicios: '', sobre_agencia: '',
     casos_exito: '', redes_sociales: '', preguntas_frecuentes: '', reglas_agente: '',
+    email_alertas: '',
   });
 
   const { data, isLoading } = useQuery({ queryKey: ['configuracion'], queryFn: obtenerConfiguracion });
@@ -54,6 +55,7 @@ export default function TabConfiguracion() {
         redes_sociales: c.redes_sociales || '',
         preguntas_frecuentes: c.preguntas_frecuentes || '',
         reglas_agente: c.reglas_agente || '',
+        email_alertas: c.email_alertas || '',
       });
     }
   }, [data]);
@@ -169,6 +171,37 @@ export default function TabConfiguracion() {
               className="bg-black hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm"
             >
               {mutacion.isPending ? 'Guardando...' : 'Guardar Reglas'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Alertas por correo */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-black">
+          <h2 className="text-base font-bold text-white">Aviso por correo al agendarse una visita</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Cada vez que Valeria agende una visita, se envía un correo con los datos del cliente.</p>
+        </div>
+        <div className="p-6">
+          <InputField
+            label="Destinatarios (separados por coma)"
+            name="email_alertas"
+            value={formulario.email_alertas}
+            onChange={manejarCambio}
+            placeholder="ventas@ceinys.com, asesor1@ceinys.com"
+          />
+          <p className="text-xs text-gray-400 mt-3">
+            Podés poner varios para que le llegue a todo el equipo comercial. Si lo dejás vacío, no se envía
+            ningún correo y el agendamiento funciona igual.
+          </p>
+          <div className="flex justify-end mt-4">
+            <button
+              type="button"
+              onClick={() => mutacion.mutate(formulario)}
+              disabled={mutacion.isPending}
+              className="bg-black hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm"
+            >
+              {mutacion.isPending ? 'Guardando...' : 'Guardar Destinatarios'}
             </button>
           </div>
         </div>

@@ -7,6 +7,7 @@ const {
   HORA_APERTURA,
   HORA_CIERRE,
 } = require('../utils/fechas');
+const { enviarAlertaVisita } = require('../services/email');
 
 const router = express.Router();
 
@@ -246,6 +247,12 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
     if (error) throw error;
 
     console.log(`[Agenda] Visita ${visita.id} reservada desde el link por ${telefono}`);
+
+    // Acá sí esperamos: la respuesta se devuelve enseguida y en serverless
+    // una promesa suelta puede quedar cortada antes de completarse.
+    const { data: config } = await supabase
+      .from('configuracion_agencia').select('email_alertas').limit(1).single();
+    await enviarAlertaVisita({ ...visita, origen: 'link' }, config);
 
     res.json({
       ok: true,

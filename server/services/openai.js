@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const { obtenerSupabase } = require('../db');
 const { calcularHorariosLibres, formatearFechaCompleta } = require('../utils/fechas');
 const { crearEnlaceAgenda } = require('../routes/agenda');
+const { enviarAlertaVisita } = require('./email');
 
 let clienteOpenAI;
 
@@ -389,6 +390,12 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
 
       if (error) return { exito: false, mensaje: `Error al agendar: ${error.message}` };
 
+      // Aviso al equipo. Sin await: el flujo del cliente no espera por un
+      // correo interno, y despues de esto viene otra llamada a OpenAI que
+      // mantiene viva la función el tiempo suficiente.
+      enviarAlertaVisita({ ...nuevaVisita, origen: 'whatsapp' }, contexto.config)
+        .catch(err => console.error('[Email] Falló la alerta:', err.message));
+
       return {
         exito: true,
         id_visita: nuevaVisita.id,
@@ -571,7 +578,7 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
 
   // Efectos que no viajan en el texto: las herramientas lo van llenando y el
   // webhook lo usa para adjuntar media al mensaje de WhatsApp.
-  const contexto = { imagenes: [], numeroTelefono };
+  const contexto = { imagenes: [], numeroTelefono, config };
 
   const mensajes = [{ role: 'system', content: systemPrompt }];
 

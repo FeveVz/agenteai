@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS configuracion_agencia (
   redes_sociales TEXT,
   preguntas_frecuentes TEXT,
   reglas_agente TEXT,
+  email_alertas TEXT,           -- destinatarios del aviso al agendarse una visita
   webhook_url TEXT,
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW()
