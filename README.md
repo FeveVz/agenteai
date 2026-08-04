@@ -84,7 +84,7 @@ Si la base ya venía del esquema viejo (`reuniones`, `tipo_servicio`, `empresa`)
 |---|---|
 | `mensajes_whatsapp` | Historial de la conversación (memoria de los últimos 20 mensajes) |
 | `visitas` | Visitas agendadas a los proyectos |
-| `proyectos` | Catálogo. Valeria solo menciona los que están acá con `activo = true` |
+| `proyectos` | Catálogo. Valeria solo menciona los que están aquí con `activo = true` |
 | `configuracion_agencia` | Datos de Ceinys y reglas del agente |
 
 ---

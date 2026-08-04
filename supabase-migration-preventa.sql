@@ -61,10 +61,10 @@ UPDATE configuracion_agencia SET
     'P: ¿Los lotes tienen título de propiedad?' || chr(10) ||
     'R: Todos nuestros proyectos se entregan con título de propiedad. La mayoría está hoy en pre-venta, '
     || 'así que el título se entrega en la fecha proyectada de cada etapa — un asesor te confirma la de tu '
-    || 'proyecto. Desde el primer día comprás con respaldo: partida registral, empresa inscrita y contrato firmado.' || chr(10) || chr(10) ||
+    || 'proyecto. Desde el primer día compras con respaldo: partida registral, empresa inscrita y contrato firmado.' || chr(10) || chr(10) ||
     'P: ¿Qué ventaja tiene comprar en pre-venta?' || chr(10) ||
     'R: Es la etapa de precio más bajo de todo el proyecto y la de mayor potencial de revalorización. '
-    || 'Además podés elegir entre los mejores lotes, que son los primeros en venderse.'
+    || 'Además puedes elegir entre los mejores lotes, que son los primeros en venderse.'
   ),
   reglas_agente = COALESCE(reglas_agente, '') || chr(10) ||
     '- No todos los proyectos tienen el título entregado: la mayoría está en PRE-VENTA. Nunca afirmes que un proyecto ya tiene título salvo que su campo entrega_titulo lo diga. Si no hay dato, un asesor confirma la fecha.' || chr(10) ||

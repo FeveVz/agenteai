@@ -88,7 +88,7 @@ export default function ListaVisitas() {
             <p className="text-5xl">📅</p>
             <p className="text-sm font-medium">No hay visitas todavía.</p>
             <p className="text-xs text-center max-w-xs">
-              Las visitas aparecerán acá cuando Valeria las agende por WhatsApp.
+              Las visitas aparecerán aquí cuando Valeria las agende por WhatsApp.
             </p>
           </div>
         )}

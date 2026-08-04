@@ -71,11 +71,11 @@ async function requiereCodigoAgenda(req, res, next) {
   const ip = req.ip || 'desconocida';
 
   if (demasiadosIntentos(ip)) {
-    return res.status(429).json({ error: 'Demasiados intentos. Esperá unos minutos.' });
+    return res.status(429).json({ error: 'Demasiados intentos. Espera unos minutos.' });
   }
 
   if (!codigo || !/^[a-z0-9]{4,16}$/.test(String(codigo))) {
-    return res.status(401).json({ error: 'Este enlace no es válido. Pedile uno nuevo a Valeria por WhatsApp.' });
+    return res.status(401).json({ error: 'Este enlace no es válido. Pídele uno nuevo a Valeria por WhatsApp.' });
   }
 
   try {
@@ -88,17 +88,17 @@ async function requiereCodigoAgenda(req, res, next) {
       .single();
 
     if (!enlace) {
-      return res.status(401).json({ error: 'Este enlace no es válido. Pedile uno nuevo a Valeria por WhatsApp.' });
+      return res.status(401).json({ error: 'Este enlace no es válido. Pídele uno nuevo a Valeria por WhatsApp.' });
     }
     if (new Date(enlace.expira_en) < new Date()) {
-      return res.status(401).json({ error: 'Este enlace ya venció. Escribinos por WhatsApp y te mandamos uno nuevo.' });
+      return res.status(401).json({ error: 'Este enlace ya venció. Escríbenos por WhatsApp y te mandamos uno nuevo.' });
     }
 
     req.telefonoCliente = enlace.numero_telefono;
     req.proyectoSugerido = enlace.proyecto;
     next();
   } catch {
-    return res.status(401).json({ error: 'Este enlace no es válido. Pedile uno nuevo a Valeria por WhatsApp.' });
+    return res.status(401).json({ error: 'Este enlace no es válido. Pídele uno nuevo a Valeria por WhatsApp.' });
   }
 }
 
@@ -148,7 +148,7 @@ router.get('/:codigo/contexto', requiereCodigoAgenda, async (req, res) => {
     });
   } catch (error) {
     console.error('[Agenda] Error en contexto:', error);
-    res.status(500).json({ error: 'No pudimos cargar la agenda. Probá de nuevo en un momento.' });
+    res.status(500).json({ error: 'No pudimos cargar la agenda. Prueba de nuevo en un momento.' });
   }
 });
 
@@ -158,7 +158,7 @@ router.get('/:codigo/disponibilidad', requiereCodigoAgenda, async (req, res) => 
   const { fecha } = req.query;
 
   if (!esFechaValida(fecha)) {
-    return res.status(400).json({ error: 'Fecha inválida. Usá el formato YYYY-MM-DD.' });
+    return res.status(400).json({ error: 'Fecha inválida. Usa el formato YYYY-MM-DD.' });
   }
 
   try {
@@ -201,13 +201,13 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
     return res.status(400).json({ error: 'Necesitamos tu nombre completo.' });
   }
   if (!esFechaValida(fecha) || !/^\d{2}:\d{2}$/.test(hora || '')) {
-    return res.status(400).json({ error: 'Elegí una fecha y un horario.' });
+    return res.status(400).json({ error: 'Elige una fecha y un horario.' });
   }
   if (!proyecto) {
-    return res.status(400).json({ error: 'Elegí el proyecto que querés visitar.' });
+    return res.status(400).json({ error: 'Elige el proyecto que quieres visitar.' });
   }
   if (demasiadasReservas(telefono)) {
-    return res.status(429).json({ error: 'Ya registraste varias visitas. Escribinos por WhatsApp para coordinar otra.' });
+    return res.status(429).json({ error: 'Ya registraste varias visitas. Escríbenos por WhatsApp para coordinar otra.' });
   }
 
   const fechaVisita = `${fecha}T${hora}:00`;
@@ -228,7 +228,7 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
       .from('visitas').select('id').eq('fecha_visita', fechaVisita).neq('estado', 'cancelada').limit(1);
 
     if (ocupado && ocupado.length > 0) {
-      return res.status(409).json({ error: 'Ese horario se acaba de ocupar. Elegí otro, por favor.' });
+      return res.status(409).json({ error: 'Ese horario se acaba de ocupar. Elige otro, por favor.' });
     }
 
     const { data: visita, error } = await supabase
@@ -270,7 +270,7 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
     });
   } catch (error) {
     console.error('[Agenda] Error al reservar:', error);
-    res.status(500).json({ error: 'No pudimos confirmar la visita. Escribinos por WhatsApp y lo resolvemos.' });
+    res.status(500).json({ error: 'No pudimos confirmar la visita. Escríbenos por WhatsApp y lo resolvemos.' });
   }
 });
 

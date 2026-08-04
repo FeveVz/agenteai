@@ -173,7 +173,7 @@ export default function TabMensajes() {
             <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400 px-6 text-center">
               <p className="text-4xl">💬</p>
               <p className="text-sm font-medium">Sin conversaciones</p>
-              <p className="text-xs">Aparecerán acá cuando alguien le escriba a Valeria.</p>
+              <p className="text-xs">Aparecerán aquí cuando alguien le escriba a Valeria.</p>
             </div>
           )}
 
@@ -198,7 +198,7 @@ export default function TabMensajes() {
           {!numeroActivo && (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-400">
               <p className="text-4xl">👈</p>
-              <p className="text-sm">Elegí una conversación</p>
+              <p className="text-sm">Elige una conversación</p>
             </div>
           )}
 

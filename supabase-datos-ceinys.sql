@@ -171,16 +171,16 @@ UPDATE configuracion_agencia SET
     'P: ¿Los lotes tienen título de propiedad?' || chr(10) ||
     'R: Todos nuestros proyectos se entregan con título de propiedad. La mayoría está hoy en pre-venta, '
     || 'así que el título se entrega en la fecha proyectada de cada etapa — un asesor te confirma la de tu '
-    || 'proyecto. Desde el primer día comprás con respaldo: partida registral, empresa inscrita y contrato firmado.' || chr(10) || chr(10) ||
+    || 'proyecto. Desde el primer día compras con respaldo: partida registral, empresa inscrita y contrato firmado.' || chr(10) || chr(10) ||
     'P: ¿Qué ventaja tiene comprar en pre-venta?' || chr(10) ||
     'R: Es la etapa de precio más bajo de todo el proyecto y la de mayor potencial de revalorización. '
-    || 'Además podés elegir entre los mejores lotes, que son los primeros en venderse.' || chr(10) || chr(10) ||
+    || 'Además puedes elegir entre los mejores lotes, que son los primeros en venderse.' || chr(10) || chr(10) ||
     'P: ¿Puedo pagar en cuotas? ¿Piden evaluación crediticia?' || chr(10) ||
     'R: Tenemos financiamiento directo, sin evaluación crediticia y con 0% de interés. No se necesita banco.' || chr(10) || chr(10) ||
     'P: ¿Qué requisitos piden para comprar?' || chr(10) ||
     'R: Solo DNI, un recibo de servicios, un correo electrónico y el voucher del depósito de la inicial.' || chr(10) || chr(10) ||
     'P: ¿Cómo es el proceso de compra?' || chr(10) ||
-    'R: Cotizás y elegís tu ubicación, pagás la inicial o separación, enviás foto del DNI o recibo de servicio, y solicitás tu convenio de separación. Después se firma el contrato y se envía la boleta electrónica por email.' || chr(10) || chr(10) ||
+    'R: Cotizas y eliges tu ubicación, pagas la inicial o separación, envías foto del DNI o recibo de servicio, y solicitas tu convenio de separación. Después se firma el contrato y se envía la boleta electrónica por email.' || chr(10) || chr(10) ||
     'P: ¿Puedo visitar el proyecto antes de comprar?' || chr(10) ||
     'R: Sí, las visitas guiadas son gratuitas, de lunes a domingo a las 10:00 y a las 16:00. Se reservan con anticipación.' || chr(10) || chr(10) ||
     'P: ¿Los lotes tienen agua y luz?' || chr(10) ||

@@ -102,7 +102,7 @@ export default function TabConfiguracion() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-black">
           <h2 className="text-base font-bold text-white">URL del Webhook de Twilio</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Pegá esta URL en la configuración de Twilio WhatsApp.</p>
+          <p className="text-xs text-gray-500 mt-0.5">Pega esta URL en la configuración de Twilio WhatsApp.</p>
         </div>
         <div className="p-6">
           <div className="flex gap-3 items-center mb-6">
@@ -125,10 +125,10 @@ export default function TabConfiguracion() {
             </h3>
             <ol className="space-y-2.5 text-sm text-gray-600">
               {[
-                'Ingresá a Twilio Console → Messaging → WhatsApp Sandbox',
-                'Pegá la URL del webhook en "When a message comes in"',
-                'Seleccioná el método HTTP POST',
-                'Guardá y probá enviando un WhatsApp al número del sandbox',
+                'Ingresa a Twilio Console → Messaging → WhatsApp Sandbox',
+                'Pega la URL del webhook en "When a message comes in"',
+                'Selecciona el método HTTP POST',
+                'Guarda y prueba enviando un WhatsApp al número del sandbox',
               ].map((paso, i) => (
                 <li key={i} className="flex gap-2.5">
                   <span className="flex-shrink-0 w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold">{i + 1}</span>
@@ -138,7 +138,7 @@ export default function TabConfiguracion() {
             </ol>
             <div className="mt-4 pt-4 border-t border-gray-200">
               <p className="text-xs text-gray-500">
-                <strong>Para desarrollo local:</strong> usá <code className="bg-gray-200 px-1.5 py-0.5 rounded font-mono">ngrok http 3001</code> para exponer el servidor.
+                <strong>Para desarrollo local:</strong> usa <code className="bg-gray-200 px-1.5 py-0.5 rounded font-mono">ngrok http 3001</code> para exponer el servidor.
               </p>
             </div>
           </div>
@@ -157,11 +157,11 @@ export default function TabConfiguracion() {
             name="reglas_agente"
             value={formulario.reglas_agente}
             onChange={manejarCambio}
-            placeholder={`Ejemplos de reglas que podés definir:\n- Solo hablar de Ceinys y sus proyectos inmobiliarios. Si preguntan otro tema, redirigir con amabilidad.\n- NUNCA inventar precios, metrajes ni condiciones de financiamiento. Si el dato no está cargado, derivar a un asesor.\n- El objetivo de cada conversación es agendar una visita al proyecto.\n- Nunca prometer separación, descuento ni reserva de lote.\n- No hablar negativamente de otras inmobiliarias.`}
+            placeholder={`Ejemplos de reglas que puedes definir:\n- Solo hablar de Ceinys y sus proyectos inmobiliarios. Si preguntan otro tema, redirigir con amabilidad.\n- NUNCA inventar precios, metrajes ni condiciones de financiamiento. Si el dato no está cargado, derivar a un asesor.\n- El objetivo de cada conversación es agendar una visita al proyecto.\n- Nunca prometer separación, descuento ni reserva de lote.\n- No hablar negativamente de otras inmobiliarias.`}
             rows={7}
           />
           <p className="text-xs text-gray-400 mt-3">
-            Escribí una regla por línea. Podés ser tan específico como necesitás — Valeria las va a respetar en cada conversación.
+            Escribe una regla por línea. Puedes ser tan específico como necesites — Valeria las va a respetar en cada conversación.
           </p>
           <div className="flex justify-end mt-4">
             <button
@@ -191,7 +191,7 @@ export default function TabConfiguracion() {
             placeholder="ventas@ceinys.com, asesor1@ceinys.com"
           />
           <p className="text-xs text-gray-400 mt-3">
-            Podés poner varios para que le llegue a todo el equipo comercial. Si lo dejás vacío, no se envía
+            Puedes poner varios para que le llegue a todo el equipo comercial. Si lo dejas vacío, no se envía
             ningún correo y el agendamiento funciona igual.
           </p>
           <div className="flex justify-end mt-4">

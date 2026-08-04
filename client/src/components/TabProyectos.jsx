@@ -106,7 +106,7 @@ function TarjetaProyecto({ proyecto }) {
           />
           <p className="text-xs text-gray-400 -mt-2">
             Valeria lo manda cuando preguntan dónde queda, y se le muestra al cliente al confirmar la visita.
-            Sacalo desde Google Maps → Compartir → Copiar vínculo.
+            Sácalo desde Google Maps → Compartir → Copiar vínculo.
           </p>
 
           <Campo label="Estado comercial" name="estado_comercial" value={form.estado_comercial} onChange={cambiar} placeholder="Pre-venta / En obra / Entregado" />
@@ -120,7 +120,7 @@ function TarjetaProyecto({ proyecto }) {
             rows={3}
           />
           <p className="text-xs text-gray-400 -mt-2">
-            Si dejás esto vacío, Valeria no va a afirmar que el proyecto tiene título: deriva al asesor.
+            Si dejas esto vacío, Valeria no va a afirmar que el proyecto tiene título: deriva al asesor.
             Es a propósito — prometer un título que todavía no existe es un problema serio en una venta de terreno.
           </p>
 
@@ -227,7 +227,7 @@ export default function TabProyectos() {
       <div className="bg-black rounded-2xl border border-gray-800 shadow-sm p-5">
         <h2 className="text-base font-bold text-white">Proyectos de Ceinys</h2>
         <p className="text-xs text-gray-500 mt-1">
-          Valeria solo habla de los proyectos cargados acá, y solo cita los datos que completes.
+          Valeria solo habla de los proyectos cargados aquí, y solo cita los datos que completes.
           {sinDatos > 0 && (
             <span className="text-amber-400"> {sinDatos} proyecto{sinDatos !== 1 ? 's' : ''} sin datos todavía.</span>
           )}

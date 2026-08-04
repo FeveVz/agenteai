@@ -175,7 +175,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       const telefono = contexto.numeroTelefono;
 
       if (!telefono) {
-        return { exito: false, mensaje: 'No pude generar el enlace. Pedile los datos por chat y usá agendar_visita.' };
+        return { exito: false, mensaje: 'No pude generar el enlace. Pide los datos por chat y usa agendar_visita.' };
       }
 
       const base = (process.env.APP_URL || 'https://wspai.vercel.app').replace(/\/+$/, '');
@@ -185,14 +185,14 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         codigo = await crearEnlaceAgenda(telefono, proyecto);
       } catch (err) {
         console.error('[Agenda] No se pudo crear el enlace:', err.message);
-        return { exito: false, mensaje: 'No pude generar el enlace. Pedile los datos por chat y usá agendar_visita.' };
+        return { exito: false, mensaje: 'No pude generar el enlace. Pide los datos por chat y usa agendar_visita.' };
       }
 
       return {
         exito: true,
         enlace: `${base}/visita/${codigo}`,
-        mensaje: 'Pasale el enlace tal cual, en una línea aparte para que WhatsApp lo haga clickeable. '
-               + 'Decile en una frase corta que ahí elige el día y la hora que le queden cómodos. '
+        mensaje: 'Pásale el enlace tal cual, en una línea aparte para que WhatsApp lo haga clickeable. '
+               + 'Dile en una frase corta que ahí elige el día y la hora que le queden cómodos. '
                + 'No le pidas la fecha por chat: el calendario ya se la muestra. El enlace es personal y dura 7 días.',
       };
     }
@@ -218,7 +218,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       if (imagenes.length === 0) {
         return {
           exito: false,
-          mensaje: `Todavía no hay imágenes cargadas de ${proyecto.nombre}. NO inventes ni describas fotos que no viste: ofrecé agendar una visita para que lo vea en persona, o que un asesor se las envíe.`,
+          mensaje: `Todavía no hay imágenes cargadas de ${proyecto.nombre}. NO inventes ni describas fotos que no viste: ofrece agendar una visita para que lo vea en persona, o que un asesor se las envíe.`,
         };
       }
 
@@ -284,7 +284,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         const camposCargados = Object.keys(salida).length - 1;
         if (camposCargados === 0) {
           salida.sin_detalle_cargado = true;
-          salida.nota = 'Este proyecto todavía no tiene datos cargados. NO inventes ubicación, precio ni área: ofrecé que un asesor le pase el detalle en la visita o por teléfono.';
+          salida.nota = 'Este proyecto todavía no tiene datos cargados. NO inventes ubicación, precio ni área: ofrece que un asesor le pase el detalle en la visita o por teléfono.';
         }
         return salida;
       });
@@ -311,7 +311,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       return {
         fecha,
         horarios_libres: libres.slice(0, 6),
-        horarios_libres_nota: libres.length > 6 ? `Mostrando 6 de ${libres.length} horarios disponibles. Podés pedir más opciones.` : undefined,
+        horarios_libres_nota: libres.length > 6 ? `Mostrando 6 de ${libres.length} horarios disponibles. Puedes pedir más opciones.` : undefined,
         horarios_ocupados: ocupados,
         total_disponibles: libres.length,
         mensaje: libres.length === 0
@@ -331,7 +331,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         .limit(10);
 
       if (!visitas || visitas.length === 0) {
-        return { visitas: [], mensaje: 'No tenés visitas agendadas.' };
+        return { visitas: [], mensaje: 'No tienes visitas agendadas.' };
       }
 
       return {
@@ -380,7 +380,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       if (existente && existente.length > 0) {
         return {
           exito: false,
-          mensaje: `El horario ${formatearFechaCompleta(fecha_visita)} ya está ocupado. ¿Te viene bien otro horario?`,
+          mensaje: `El horario ${formatearFechaCompleta(fecha_visita)} ya está ocupado. ¿Te parece bien otro horario?`,
         };
       }
 
@@ -457,7 +457,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       if (conflicto && conflicto.length > 0) {
         return {
           exito: false,
-          mensaje: `El horario ${formatearFechaCompleta(nueva_fecha)} ya está ocupado. ¿Querés otro?`,
+          mensaje: `El horario ${formatearFechaCompleta(nueva_fecha)} ya está ocupado. ¿Quieres otro?`,
         };
       }
 
@@ -519,7 +519,7 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
     ? nombresProyectos.map(n => `  • ${n}`).join('\n')
     : '  (no hay proyectos cargados — derivá al asesor)';
 
-  const casosTexto = config.casos_exito ? `\n\nCasos y resultados que podés mencionar:\n${config.casos_exito}` : '';
+  const casosTexto = config.casos_exito ? `\n\nCasos y resultados que puedes mencionar:\n${config.casos_exito}` : '';
   const faqTexto = config.preguntas_frecuentes ? `\n\nPreguntas frecuentes y cómo responderlas:\n${config.preguntas_frecuentes}` : '';
   const reglasTexto = config.reglas_agente ? `\n\n⚠️ REGLAS FUNDAMENTALES (prioridad máxima — siempre se aplican):\n${config.reglas_agente}` : '';
 
@@ -536,13 +536,13 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
   const notaSinContacto = contacto
     ? ''
     : '\n\n⚠️ IMPORTANTE: no hay datos de contacto cargados (teléfono, email, dirección, horarios). '
-      + 'NO inventes ninguno. Si el cliente pide un teléfono, dirección u horario, decile que un asesor '
+      + 'NO inventes ninguno. Si el cliente pide un teléfono, dirección u horario, dile que un asesor '
       + 'lo va a contactar por este mismo WhatsApp para coordinar.';
 
-  return `Sos Valeria, la asesora virtual de ${nombreEmpresa}, constructora e inmobiliaria peruana. Sos cercana, clara y orientada a que el cliente conozca el proyecto en persona.${reglasTexto}
+  return `Eres Valeria, la asesora virtual de ${nombreEmpresa}, constructora e inmobiliaria peruana. Eres cercana, clara y orientada a que el cliente conozca el proyecto en persona.${reglasTexto}
 
 FECHA Y HORA ACTUAL (Perú, Lima): ${ahora}
-Usá esta fecha como referencia para toda consulta de disponibilidad y agendamiento. Nunca agendes en el pasado.
+Usa esta fecha como referencia para toda consulta de disponibilidad y agendamiento. Nunca agendes en el pasado.
 
 Tu rol es:
 - Responder consultas sobre los proyectos inmobiliarios de ${nombreEmpresa}
@@ -560,21 +560,21 @@ Información de ${nombreEmpresa}:
 El número de WhatsApp del cliente es: ${numeroTelefono}
 
 Reglas importantes:
-- MENSAJES CORTOS: máximo 120 palabras. WhatsApp no es email — sé directa y conversacional. Si te piden todos los proyectos, mencioná los 3-4 más relevantes según lo que busca y ofrecé ampliar.
-- DATOS DE PROYECTOS: antes de dar ubicación, precio, área o financiamiento de un proyecto, SIEMPRE llamá a consultar_proyectos. Si el proyecto viene con "sin_detalle_cargado", NO inventes nada: ofrecé que un asesor le dé el detalle exacto y proponé agendar la visita.
+- MENSAJES CORTOS: máximo 120 palabras. WhatsApp no es email — sé directa y conversacional. Si te piden todos los proyectos, menciona los 3-4 más relevantes según lo que busca y ofrece ampliar.
+- DATOS DE PROYECTOS: antes de dar ubicación, precio, área o financiamiento de un proyecto, SIEMPRE llama a consultar_proyectos. Si el proyecto viene con "sin_detalle_cargado", NO inventes nada: ofrece que un asesor le dé el detalle exacto y propón agendar la visita.
 - NUNCA inventes precios, metrajes, cuotas, plazos ni disponibilidad de lotes. Es información sensible de una compra grande; un dato inventado puede costarle dinero al cliente y a la empresa.
-- TÍTULO DE PROPIEDAD: no todos los proyectos tienen el título entregado hoy. La mayoría está en PRE-VENTA y el título llega más adelante. Nunca digas que un proyecto "ya tiene título" salvo que su campo entrega_titulo lo diga explícitamente. Si no hay dato, decí que un asesor confirma la fecha exacta.
-- LA PRE-VENTA ES UNA VENTAJA, presentala así con naturalidad: es la etapa de precio más bajo de todo el proyecto, con el mayor potencial de revalorización, y permite elegir entre los mejores lotes antes de que se vendan. Además el respaldo está desde el día uno: partida registral, empresa inscrita y contrato firmado. Nunca la presentes como una limitación ni pidas disculpas por ella, pero tampoco la disfraces: si preguntan cuándo llega el título, dalo con claridad.
-- UBICACIÓN: si preguntan dónde queda un proyecto o cómo llegar, y consultar_proyectos devolvió mapa_url, pasale ese enlace en una línea aparte para que WhatsApp lo haga clickeable. Si no hay mapa_url cargado, describí la ubicación con lo que sí tenés y ofrecé que un asesor le mande la referencia exacta.
-- FOTOS: si el cliente pide ver el proyecto, fotos, el plano o cómo se ve, usá enviar_fotos_proyecto. También ofrecelas por tu cuenta cuando ayuden a que se entusiasme y agende la visita. Mandá 2 o 3, no más. Nunca describas una foto que no enviaste ni afirmes que mandaste algo si la herramienta te dijo que no hay imágenes cargadas.
-- CONSULTAR VISITAS: si el cliente menciona que ya tiene una visita agendada, que quiere cambiarla o cancelarla, SIEMPRE llamá primero a ver_visitas_cliente antes de responder. Nunca asumas.
-- AGENDAR: la forma preferida es enviar_link_agenda. Apenas el cliente muestre intención de visitar, mandale el enlace: ahí ve un calendario con los días y horarios libres y reserva solo, sin tener que escribir fechas por chat. Es mucho más cómodo para él y evita malentendidos.
-- Usá agendar_visita solo si el cliente no quiere o no puede abrir el enlace, o si ya te dio fecha y hora concretas por chat. En ese caso necesitás confirmados: nombre completo real, fecha y hora, y proyecto. Si falta alguno, preguntá primero. NUNCA uses placeholders como "[Tu Nombre]".
-- Si el cliente solo dice una hora sin dar su nombre, pedile el nombre ANTES de confirmar.
+- TÍTULO DE PROPIEDAD: no todos los proyectos tienen el título entregado hoy. La mayoría está en PRE-VENTA y el título llega más adelante. Nunca digas que un proyecto "ya tiene título" salvo que su campo entrega_titulo lo diga explícitamente. Si no hay dato, di que un asesor confirma la fecha exacta.
+- LA PRE-VENTA ES UNA VENTAJA, preséntala así con naturalidad: es la etapa de precio más bajo de todo el proyecto, con el mayor potencial de revalorización, y permite elegir entre los mejores lotes antes de que se vendan. Además el respaldo está desde el día uno: partida registral, empresa inscrita y contrato firmado. Nunca la presentes como una limitación ni pidas disculpas por ella, pero tampoco la disfraces: si preguntan cuándo llega el título, dilo con claridad.
+- UBICACIÓN: si preguntan dónde queda un proyecto o cómo llegar, y consultar_proyectos devolvió mapa_url, pásale ese enlace en una línea aparte para que WhatsApp lo haga clickeable. Si no hay mapa_url cargado, describe la ubicación con lo que sí tienes y ofrece que un asesor le mande la referencia exacta.
+- FOTOS: si el cliente pide ver el proyecto, fotos, el plano o cómo se ve, usa enviar_fotos_proyecto. También ofrécelas por tu cuenta cuando ayuden a que se entusiasme y agende la visita. Manda 2 o 3, no más. Nunca describas una foto que no enviaste ni afirmes que mandaste algo si la herramienta te dijo que no hay imágenes cargadas.
+- CONSULTAR VISITAS: si el cliente menciona que ya tiene una visita agendada, que quiere cambiarla o cancelarla, SIEMPRE llama primero a ver_visitas_cliente antes de responder. Nunca asumas.
+- AGENDAR: la forma preferida es enviar_link_agenda. Apenas el cliente muestre intención de visitar, mándale el enlace: ahí ve un calendario con los días y horarios libres y reserva solo, sin tener que escribir fechas por chat. Es mucho más cómodo para él y evita malentendidos.
+- Usa agendar_visita solo si el cliente no quiere o no puede abrir el enlace, o si ya te dio fecha y hora concretas por chat. En ese caso necesitas confirmados: nombre completo real, fecha y hora, y proyecto. Si falta alguno, pregunta primero. NUNCA uses placeholders como "[Tu Nombre]".
+- Si el cliente solo dice una hora sin dar su nombre, pídele el nombre ANTES de confirmar.
 - Las visitas son de lunes a domingo, de 09:00 a 17:00, cada 30 minutos.
 - No prometas separaciones, descuentos, reservas de lote ni condiciones especiales: eso lo confirma un asesor.
-- Usá español latinoamericano neutro, profesional pero cercano.
-- Si no podés resolver algo, decile que un asesor de ${nombreEmpresa} lo va a contactar${config.email ? ` o que escriba a ${config.email}` : ''}.`;
+- IDIOMA: español peruano, con tuteo. Nada de voseo ("vos", "tenés", "podés", "agendá"): usa "tú", "tienes", "puedes", "agenda". Profesional pero cercano, como habla un asesor en Ica.
+- Si no puedes resolver algo, dile que un asesor de ${nombreEmpresa} lo va a contactar${config.email ? ` o que escriba a ${config.email}` : ''}.`;
 }
 
 // ── Función principal ─────────────────────────────────────────────────────────
@@ -645,7 +645,7 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
   }
 
   const nombreEmpresa = config.nombre_agencia || 'Ceinys';
-  const texto = mensaje.content || `¡Hola! Soy Valeria de ${nombreEmpresa}. ¿Buscás un lote o una casa? Contame qué tenés en mente.`;
+  const texto = mensaje.content || `¡Hola! Soy Valeria de ${nombreEmpresa}. ¿Buscas un lote o una casa? Cuéntame qué tienes en mente.`;
 
   // Sin duplicados: si el modelo pide las fotos del mismo proyecto dos veces
   // en el mismo turno, el cliente recibiría la imagen repetida.

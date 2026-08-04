@@ -116,7 +116,7 @@ export default function Agendar() {
   const [confirmada, setConfirmada] = useState(null);
 
   useEffect(() => {
-    if (!codigo) { setErrorInicial('Falta el enlace personal. Pedile uno a Valeria por WhatsApp.'); return; }
+    if (!codigo) { setErrorInicial('Falta el enlace personal. Pídele uno a Valeria por WhatsApp.'); return; }
     fetch(`/api/agenda/${encodeURIComponent(codigo)}/contexto`)
       .then(async r => {
         const d = await r.json();
@@ -206,7 +206,7 @@ export default function Agendar() {
           )}
 
           <p className="text-xs text-gray-400">
-            Te esperamos. Si necesitás cambiarla, escribinos por WhatsApp.
+            Te esperamos. Si necesitas cambiarla, escríbenos por WhatsApp.
           </p>
         </div>
       </div>
@@ -231,14 +231,14 @@ export default function Agendar() {
             <span className="font-bold text-white text-lg tracking-tight">CEINYS</span>
             <span className="w-2 h-2 bg-ceinys-orange rounded-sm" />
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">Agendá tu visita — {contexto.horario.dias}, {String(contexto.horario.apertura).padStart(2, '0')}:00 a {String(contexto.horario.cierre).padStart(2, '0')}:00</p>
+          <p className="text-xs text-gray-500 mt-0.5">Agenda tu visita — {contexto.horario.dias}, {String(contexto.horario.apertura).padStart(2, '0')}:00 a {String(contexto.horario.cierre).padStart(2, '0')}:00</p>
         </div>
       </header>
 
       <form onSubmit={reservar} className="max-w-lg mx-auto px-4 py-6 space-y-5">
         {/* Proyecto */}
         <section className="bg-white rounded-2xl border border-gray-200 p-5">
-          <label className="block text-sm font-bold text-gray-900 mb-3">1. ¿Qué proyecto querés visitar?</label>
+          <label className="block text-sm font-bold text-gray-900 mb-3">1. ¿Qué proyecto quieres visitar?</label>
           <div className="flex flex-wrap gap-2">
             {contexto.proyectos.map(p => (
               <button
@@ -259,7 +259,7 @@ export default function Agendar() {
 
         {/* Fecha */}
         <section className="bg-white rounded-2xl border border-gray-200 p-5">
-          <label className="block text-sm font-bold text-gray-900 mb-3">2. Elegí el día</label>
+          <label className="block text-sm font-bold text-gray-900 mb-3">2. Elige el día</label>
           <Calendario
             mes={mes}
             onCambiarMes={setMes}
@@ -273,14 +273,14 @@ export default function Agendar() {
         {/* Horario */}
         {fecha && (
           <section className="bg-white rounded-2xl border border-gray-200 p-5">
-            <label className="block text-sm font-bold text-gray-900 mb-1">3. Elegí la hora</label>
+            <label className="block text-sm font-bold text-gray-900 mb-1">3. Elige la hora</label>
             <p className="text-xs text-gray-400 mb-3">Horarios libres para el {fechaLegible}</p>
 
             {horarios === null && <Cargando texto="Buscando horarios..." />}
 
             {horarios && horarios.length === 0 && (
               <p className="text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
-                No quedan horarios libres ese día. Probá con otra fecha.
+                No quedan horarios libres ese día. Prueba con otra fecha.
               </p>
             )}
 
@@ -324,7 +324,7 @@ export default function Agendar() {
                 value={notas}
                 onChange={e => setNotas(e.target.value)}
                 rows={2}
-                placeholder="Cuántas personas van, si necesitás movilidad..."
+                placeholder="Cuántas personas van, si necesitas movilidad..."
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ceinys-orange transition-all"
               />
             </div>
@@ -345,7 +345,7 @@ export default function Agendar() {
         >
           {enviando ? 'Confirmando...'
             : listoParaReservar ? `Confirmar visita — ${fechaLegible}, ${hora}`
-            : 'Completá los pasos para confirmar'}
+            : 'Completa los pasos para confirmar'}
         </button>
       </form>
     </div>

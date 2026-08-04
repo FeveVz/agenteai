@@ -139,7 +139,7 @@ export default function Landing() {
                 <div className="absolute -top-4 -right-6 bg-white rounded-2xl shadow-2xl p-4 max-w-52">
                   <p className="text-xs text-gray-400 mb-1">Valeria — Ahora</p>
                   <p className="text-sm text-gray-800 font-medium">
-                    ¡Hola! ¿Buscás un lote para vivir o para invertir?
+                    ¡Hola! ¿Buscas un lote para vivir o para invertir?
                   </p>
                 </div>
                 <div className="absolute -bottom-4 -left-6 bg-ceinys-blue rounded-2xl shadow-lg p-4 max-w-48">
@@ -274,7 +274,7 @@ export default function Landing() {
             <span className="text-ceinys-orange">VOS DECIDÍS DÓNDE.</span>
           </h2>
           <p className="text-gray-500 text-lg mb-10">
-            Cargá los datos de cada proyecto y Valeria empieza a captar visitas por WhatsApp.
+            Carga los datos de cada proyecto y Valeria empieza a captar visitas por WhatsApp.
           </p>
           <button
             onClick={() => navigate('/dashboard')}

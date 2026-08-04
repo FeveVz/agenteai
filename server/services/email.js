@@ -52,7 +52,7 @@ function construirHtml({ nombre, telefono, proyecto, fechaLegible, notas, origen
     </table>
     <div style="padding:18px 24px;background:#fafafa">
       <p style="margin:0;color:#888;font-size:12px;line-height:1.5">
-        Valeria agendó esta visita automáticamente. Podés verla en el panel, pestaña Visitas.
+        Valeria agendó esta visita automáticamente. Puedes verla en el panel, pestaña Visitas.
       </p>
     </div>
   </div>

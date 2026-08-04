@@ -29,7 +29,7 @@ export default function LoginGate({ children }) {
   useEffect(() => { verificar(); }, [verificar]);
 
   useEffect(() => {
-    const alExpirar = () => { setEstado('login'); setError('Tu sesión expiró. Ingresá de nuevo.'); };
+    const alExpirar = () => { setEstado('login'); setError('Tu sesión expiró. Ingresa de nuevo.'); };
     window.addEventListener('ceinys:sesion-expirada', alExpirar);
     return () => window.removeEventListener('ceinys:sesion-expirada', alExpirar);
   }, []);

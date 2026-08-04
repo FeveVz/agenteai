@@ -2,7 +2,7 @@
 -- SCHEMA para Ceinys — Constructora e Inmobiliaria
 --
 -- Este archivo es para una instalación LIMPIA (proyecto Supabase nuevo).
--- Si ya tenés la base andando con el esquema anterior (Suggestion),
+-- Si ya tienes la base andando con el esquema anterior (Suggestion),
 -- NO uses este archivo: corré `supabase-migration-ceinys.sql`.
 --
 -- Pegar en Supabase → SQL Editor → Run.
