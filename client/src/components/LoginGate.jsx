@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { estadoAuth, iniciarSesion, obtenerToken } from '../lib/api';
+import { MARCA } from '../config/marca';
 
 /**
  * Puerta de acceso al panel.
@@ -9,7 +10,7 @@ import { estadoAuth, iniciarSesion, obtenerToken } from '../lib/api';
  * alguien saltee esta pantalla.
  */
 export default function LoginGate({ children }) {
-  const [estado, setEstado] = useState('verificando'); // verificando | login | abierto
+  const [estado, setEstado] = useState('verificando'); // verificando | login | abierto | sin-configurar
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -17,7 +18,9 @@ export default function LoginGate({ children }) {
   const verificar = useCallback(async () => {
     try {
       const { proteccion_activa } = await estadoAuth();
-      if (!proteccion_activa) return setEstado('abierto');
+      // Sin PANEL_PASSWORD el backend cierra la API entera, así que no tiene
+      // sentido pintar el panel: mostramos qué falta configurar.
+      if (!proteccion_activa) return setEstado('sin-configurar');
       setEstado(obtenerToken() ? 'abierto' : 'login');
     } catch {
       // Si /auth/estado no responde, mostramos el login igual: es preferible
@@ -57,13 +60,33 @@ export default function LoginGate({ children }) {
     );
   }
 
+  if (estado === 'sin-configurar') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-4 font-sans">
+        <div className="w-full max-w-md text-center">
+          <p className="text-4xl mb-4">🔒</p>
+          <h1 className="text-xl font-bold text-white mb-3">Falta configurar el panel</h1>
+          <p className="text-sm text-gray-400 leading-relaxed mb-6">
+            Este despliegue no tiene definida la variable{' '}
+            <code className="text-ceinys-orange bg-gray-950 px-1.5 py-0.5 rounded">PANEL_PASSWORD</code>.
+            Mientras falte, la API de gestión queda cerrada para que las conversaciones
+            y los teléfonos de los clientes no queden expuestos.
+          </p>
+          <p className="text-xs text-gray-600">
+            Defínela en las variables de entorno del proyecto y vuelve a desplegar.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (estado === 'login') {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4 font-sans">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <h1 className="text-2xl font-bold text-white tracking-tight">CEINYS</h1>
+              <h1 className="text-2xl font-bold text-white tracking-tight uppercase">{MARCA.nombre}</h1>
               <span className="w-2 h-2 bg-ceinys-orange rounded-sm" />
             </div>
             <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">Panel de Control</p>

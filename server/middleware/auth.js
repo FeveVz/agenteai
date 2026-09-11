@@ -5,9 +5,15 @@ const DURACION_MS = 12 * 60 * 60 * 1000; // 12 horas
 
 /**
  * ¿Está configurada la protección del panel?
- * Si no hay PANEL_PASSWORD, el middleware deja pasar todo y avisa por consola.
- * Esto es deliberado: preferimos que el panel quede accesible a que la app
- * se vuelva inusable si alguien despliega sin configurar la variable.
+ *
+ * Si no hay PANEL_PASSWORD, la API de gestión queda CERRADA, no abierta.
+ * Antes era al revés — dejaba pasar todo — con la idea de que un despliegue
+ * incompleto no se volviera inusable. Con varios clientes en el mismo código
+ * ese default se volvió peligroso: a un despliegue nuevo al que se le olvide
+ * la variable le quedan las conversaciones y los teléfonos de sus clientes
+ * abiertos a internet, y `/api/health` seguía respondiendo `ok: true`.
+ *
+ * Un panel que no abre se nota en cinco minutos; uno público, no.
  */
 function proteccionActiva() {
   return Boolean(process.env.PANEL_PASSWORD && process.env.PANEL_PASSWORD.trim());
@@ -64,7 +70,13 @@ function passwordValida(password) {
  * Middleware: exige un token válido en Authorization: Bearer <token>.
  */
 function requiereAuth(req, res, next) {
-  if (!proteccionActiva()) return next();
+  if (!proteccionActiva()) {
+    console.error('[Auth] Falta PANEL_PASSWORD: la API de gestión queda cerrada hasta configurarla.');
+    return res.status(503).json({
+      error: 'El panel no está configurado. Falta definir PANEL_PASSWORD en las variables de entorno.',
+      requiere_configuracion: true,
+    });
+  }
 
   const cabecera = req.get('authorization') || '';
   const token = cabecera.startsWith('Bearer ') ? cabecera.slice(7).trim() : null;

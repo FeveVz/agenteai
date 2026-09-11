@@ -27,7 +27,7 @@ router.get('/:fecha', async (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return res.status(400).json({
       error: 'Formato de fecha inválido',
-      detalle: 'Usá el formato YYYY-MM-DD. Ej: 2026-08-14',
+      detalle: 'Usa el formato YYYY-MM-DD. Ej: 2026-08-14',
     });
   }
 

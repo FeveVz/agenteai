@@ -25,7 +25,7 @@ function Cargando({ texto }) {
   );
 }
 
-function Calendario({ mes, onCambiarMes, seleccionada, onSeleccionar, minima, maxima }) {
+function Calendario({ mes, onCambiarMes, seleccionada, onSeleccionar, minima, maxima, diasHabiles }) {
   const anio = mes.getFullYear();
   const m = mes.getMonth();
   const diasEnMes = new Date(anio, m + 1, 0).getDate();
@@ -68,7 +68,10 @@ function Calendario({ mes, onCambiarMes, seleccionada, onSeleccionar, minima, ma
           if (!dia) return <div key={`v${i}`} />;
           const fecha = new Date(anio, m, dia);
           const clave = claveFecha(fecha);
-          const fueraDeRango = fecha < minima || fecha > maxima;
+          // Los dias que la asesora no atiende se deshabilitan igual que los
+          // fuera de rango: ofrecerlos y despues rechazar la reserva es peor.
+          const noAtiende = Array.isArray(diasHabiles) && !diasHabiles.includes(fecha.getDay());
+          const fueraDeRango = fecha < minima || fecha > maxima || noAtiende;
           const elegida = seleccionada === clave;
 
           return (
@@ -116,7 +119,7 @@ export default function Agendar() {
   const [confirmada, setConfirmada] = useState(null);
 
   useEffect(() => {
-    if (!codigo) { setErrorInicial('Falta el enlace personal. Pídele uno a Valeria por WhatsApp.'); return; }
+    if (!codigo) { setErrorInicial('Falta el enlace personal. Pídenos uno por WhatsApp.'); return; }
     fetch(`/api/agenda/${encodeURIComponent(codigo)}/contexto`)
       .then(async r => {
         const d = await r.json();
@@ -228,7 +231,10 @@ export default function Agendar() {
       <header className="bg-black px-4 py-5">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white text-lg tracking-tight">CEINYS</span>
+            {/* El backend ya manda `empresa` desde configuracion_agencia. Estaba
+                clavado en "CEINYS", y esta es la única pantalla que el comprador
+                abre sí o sí desde el enlace de WhatsApp. */}
+            <span className="font-bold text-white text-lg tracking-tight uppercase">{contexto.empresa}</span>
             <span className="w-2 h-2 bg-ceinys-orange rounded-sm" />
           </div>
           <p className="text-xs text-gray-500 mt-0.5">Agenda tu visita — {contexto.horario.dias}, {String(contexto.horario.apertura).padStart(2, '0')}:00 a {String(contexto.horario.cierre).padStart(2, '0')}:00</p>
@@ -267,6 +273,7 @@ export default function Agendar() {
             onSeleccionar={setFecha}
             minima={minima}
             maxima={maxima}
+            diasHabiles={contexto.horario.dias_semana}
           />
         </section>
 

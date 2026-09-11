@@ -37,12 +37,12 @@ router.post('/whatsapp', async (req, res) => {
     const firma = validarFirmaTwilio(req);
 
     if (!firma.valida) {
-      console.warn(`[Webhook] Firma rechazada (${firma.motivo}). URL evaluada: ${firma.url}`);
+      if (firma.motivo === 'sin_token') {
+        console.error('[Webhook] ⚠️  Falta TWILIO_AUTH_TOKEN: el webhook queda cerrado y el agente no responde. Configúrala en las variables de entorno.');
+      } else {
+        console.warn(`[Webhook] Firma rechazada (${firma.motivo}). URL evaluada: ${firma.url}`);
+      }
       return res.status(403).json({ error: 'Firma de Twilio inválida.' });
-    }
-
-    if (firma.motivo === 'sin_token') {
-      console.warn('[Webhook] ⚠️  TWILIO_AUTH_TOKEN no configurado: el webhook acepta cualquier origen.');
     }
 
     const { Body: contenidoMensaje, From: telefonoRaw } = req.body;
@@ -58,7 +58,7 @@ router.post('/whatsapp', async (req, res) => {
     if (!verificarRateLimit(numeroTelefono)) {
       res.set('Content-Type', 'text/xml');
       return res.status(429).send(
-        generarRespuestaTwiML('Estás enviando demasiados mensajes. Esperá un minuto. 🙏')
+        generarRespuestaTwiML('Estás enviando demasiados mensajes. Espera un minuto. 🙏')
       );
     }
 

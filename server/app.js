@@ -7,6 +7,8 @@ const mensajesRouter = require('./routes/mensajes');
 const visitasRouter = require('./routes/visitas');
 const proyectosRouter = require('./routes/proyectos');
 const configuracionRouter = require('./routes/configuracion');
+const desarrolladorasRouter = require('./routes/desarrolladoras');
+const { router: archivosRouter } = require('./routes/archivos');
 const authRouter = require('./routes/auth');
 const { router: agendaRouter } = require('./routes/agenda');
 const { requiereAuth, proteccionActiva } = require('./middleware/auth');
@@ -41,7 +43,7 @@ app.use('/api/agenda', agendaRouter);
 app.get('/api/health', async (_req, res) => {
   const salud = {
     ok: true,
-    empresa: 'Ceinys',
+    empresa: null, // se completa desde la base, más abajo
     timestamp: new Date().toISOString(),
     config: {
       openai: Boolean(process.env.OPENAI_API_KEY),
@@ -49,6 +51,8 @@ app.get('/api/health', async (_req, res) => {
       twilio_envio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM),
       twilio_firma: Boolean(process.env.TWILIO_AUTH_TOKEN),
       panel_protegido: proteccionActiva(),
+      // Sin APP_URL el agente no puede mandar el enlace del calendario.
+      app_url: Boolean(String(process.env.APP_URL || '').trim()),
       alertas_email: Boolean(process.env.RESEND_API_KEY),
     },
     base_de_datos: { conectada: false, tablas: {} },
@@ -74,19 +78,39 @@ app.get('/api/health', async (_req, res) => {
   try {
     const supabase = obtenerSupabase();
 
-    for (const tabla of ['configuracion_agencia', 'visitas', 'proyectos', 'mensajes_whatsapp']) {
-      const { error } = await supabase.from(tabla).select('id', { count: 'exact', head: true });
+    // enlaces_agenda incluida a propósito: vive en una migración aparte y es
+    // fácil olvidarla al levantar una base nueva. Sin ella el agente no puede
+    // mandar el enlace del calendario, y antes el health decía que todo bien.
+    for (const tabla of ['configuracion_agencia', 'visitas', 'proyectos', 'mensajes_whatsapp', 'enlaces_agenda', 'desarrolladoras']) {
+      // `*` y no 'id': enlaces_agenda no tiene columna id, su clave primaria
+      // es `codigo`. Con head:true no viajan filas, así que sigue siendo un
+      // simple "¿existe y se puede leer?".
+      const { error } = await supabase.from(tabla).select('*', { count: 'exact', head: true });
       salud.base_de_datos.tablas[tabla] = error
         ? `error[${error.code || 's/codigo'}]: ${error.message || error.hint || error.details || '(sin mensaje)'}`
         : 'ok';
     }
 
     salud.base_de_datos.conectada = Object.values(salud.base_de_datos.tablas).every(v => v === 'ok');
+
+    const { data: cfg } = await supabase
+      .from('configuracion_agencia').select('nombre_agencia').limit(1).single();
+    salud.empresa = (cfg && cfg.nombre_agencia) || null;
   } catch (error) {
     salud.base_de_datos.error = error.message;
   }
 
-  const todoOk = salud.config.openai && salud.config.supabase && salud.base_de_datos.conectada;
+  // panel_protegido, app_url y twilio_firma entran en el veredicto: son las
+  // tres formas en que un despliegue nuevo se rompe sin que nadie lo note.
+  // Sin la primera el panel no abre, sin la segunda el agente manda enlaces
+  // que no funcionan, y sin la tercera el webhook queda cerrado y el agente
+  // no contesta. Un health que dice "ok" con eso roto no sirve de nada.
+  const todoOk = salud.config.openai
+    && salud.config.supabase
+    && salud.config.panel_protegido
+    && salud.config.app_url
+    && salud.config.twilio_firma
+    && salud.base_de_datos.conectada;
   salud.ok = todoOk;
 
   res.status(todoOk ? 200 : 503).json(salud);
@@ -97,6 +121,8 @@ app.use('/api/mensajes', requiereAuth, mensajesRouter);
 app.use('/api/visitas', requiereAuth, visitasRouter);
 app.use('/api/proyectos', requiereAuth, proyectosRouter);
 app.use('/api/configuracion', requiereAuth, configuracionRouter);
+app.use('/api/desarrolladoras', requiereAuth, desarrolladorasRouter);
+app.use('/api/archivos', requiereAuth, archivosRouter);
 
 const distPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(distPath));

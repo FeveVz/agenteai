@@ -5,25 +5,28 @@ import TabMensajes from '../components/TabMensajes';
 import TabVisitas from '../components/TabVisitas';
 import TabProyectos from '../components/TabProyectos';
 import TabConfiguracion from '../components/TabConfiguracion';
+import TabConstructoras from '../components/TabConstructoras';
 import LoginGate from '../components/LoginGate';
 import { cerrarSesion } from '../lib/api';
+import { MARCA } from '../config/marca';
 
 const PESTANAS = [
   { id: 'mensajes', etiqueta: 'Mensajes' },
   { id: 'visitas', etiqueta: 'Visitas' },
   { id: 'proyectos', etiqueta: 'Proyectos' },
+  { id: 'constructoras', etiqueta: 'Constructoras' },
   { id: 'configuracion', etiqueta: 'Configuración' },
 ];
 
 export default function Dashboard() {
   return (
     <LoginGate>
-      <PanelCeinys />
+      <Panel />
     </LoginGate>
   );
 }
 
-function PanelCeinys() {
+function Panel() {
   const [pestanaActiva, setPestanaActiva] = useState('mensajes');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -41,7 +44,7 @@ function PanelCeinys() {
           <div className="flex items-center gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold text-white tracking-tight">CEINYS</h1>
+                <h1 className="text-base font-bold text-white tracking-tight uppercase">{MARCA.nombre}</h1>
                 <span className="w-1.5 h-1.5 bg-ceinys-orange rounded-sm" />
               </div>
               <p className="text-xs text-gray-500">Panel de Control — Agente IA</p>
@@ -86,6 +89,7 @@ function PanelCeinys() {
         {pestanaActiva === 'mensajes' && <TabMensajes />}
         {pestanaActiva === 'visitas' && <TabVisitas />}
         {pestanaActiva === 'proyectos' && <TabProyectos />}
+        {pestanaActiva === 'constructoras' && <TabConstructoras />}
         {pestanaActiva === 'configuracion' && <TabConfiguracion />}
       </main>
     </div>

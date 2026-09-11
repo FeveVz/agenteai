@@ -10,8 +10,8 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
 }
 
 if (!process.env.PANEL_PASSWORD) {
-  console.warn('\n⚠️  PANEL_PASSWORD no está configurada: el panel y la API quedan SIN protección.');
-  console.warn('   Definila para exigir login en /dashboard.\n');
+  console.warn('\n⚠️  PANEL_PASSWORD no está configurada: la API de gestión responde 503 y el panel no abre.');
+  console.warn('   Defínela para poder entrar a /dashboard.\n');
 }
 if (!process.env.TWILIO_AUTH_TOKEN) {
   console.warn('⚠️  TWILIO_AUTH_TOKEN no está configurada: no se valida la firma del webhook');

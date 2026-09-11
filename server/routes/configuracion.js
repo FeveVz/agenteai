@@ -29,7 +29,10 @@ router.get('/', async (req, res) => {
 
 // PUT /api/configuracion
 router.put('/', async (req, res) => {
-  const { nombre_agencia, slogan, direccion, telefono, email, horarios, servicios, sobre_agencia, webhook_url, casos_exito, redes_sociales, preguntas_frecuentes, reglas_agente, email_alertas } = req.body;
+  const { nombre_agencia, slogan, direccion, telefono, email, horarios, servicios, sobre_agencia, webhook_url,
+        casos_exito, redes_sociales, preguntas_frecuentes, reglas_agente, email_alertas,
+        hora_apertura, hora_cierre, minutos_por_slot, dias_atencion,
+        nombre_agente, tipo_negocio } = req.body;
 
   if (nombre_agencia !== undefined && nombre_agencia.trim() === '') {
     return res.status(400).json({ error: 'El nombre de la agencia no puede estar vacío.' });
@@ -68,6 +71,16 @@ router.put('/', async (req, res) => {
     if (preguntas_frecuentes !== undefined) actualizacion.preguntas_frecuentes = preguntas_frecuentes;
     if (reglas_agente !== undefined) actualizacion.reglas_agente = reglas_agente;
     if (email_alertas !== undefined) actualizacion.email_alertas = email_alertas;
+
+    // Horario de atencion. Se guardan como vienen y se normalizan al leerlos
+    // (resolverHorario en utils/fechas), asi un valor raro guardado a mano no
+    // deja el calendario vacio.
+    if (hora_apertura !== undefined) actualizacion.hora_apertura = hora_apertura;
+    if (hora_cierre !== undefined) actualizacion.hora_cierre = hora_cierre;
+    if (minutos_por_slot !== undefined) actualizacion.minutos_por_slot = minutos_por_slot;
+    if (dias_atencion !== undefined) actualizacion.dias_atencion = dias_atencion;
+    if (nombre_agente !== undefined) actualizacion.nombre_agente = nombre_agente;
+    if (tipo_negocio !== undefined) actualizacion.tipo_negocio = tipo_negocio;
 
     const { data: configActualizada, error: errorUpdate } = await supabase
       .from('configuracion_agencia')

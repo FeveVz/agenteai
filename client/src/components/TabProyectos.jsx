@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { obtenerProyectos, actualizarProyecto, crearProyecto } from '../lib/api';
+import { MARCA } from '../config/marca';
+import SubirImagen from './SubirImagen';
 
 // Campos que Valeria puede citar. Si están todos vacíos, deriva al asesor.
-const CAMPOS_DE_DATO = ['ubicacion', 'tipo', 'descripcion', 'precio_desde', 'area_desde', 'caracteristicas', 'financiamiento', 'estado_comercial', 'entrega_titulo'];
+const CAMPOS_DE_DATO = ['ubicacion', 'tipo', 'descripcion', 'precio_desde', 'area_desde', 'caracteristicas', 'financiamiento', 'estado_comercial', 'entrega_titulo', 'desarrolladora'];
 
 function tieneDatos(proyecto) {
   return CAMPOS_DE_DATO.some(c => proyecto[c] && String(proyecto[c]).trim());
@@ -80,7 +82,7 @@ function TarjetaProyecto({ proyecto }) {
         <div className="px-5 pb-5 pt-1 border-t border-gray-100 space-y-4">
           {!completo && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              Mientras este proyecto no tenga datos, Valeria no va a dar precios ni ubicación:
+              Mientras este proyecto no tenga datos, el agente no va a dar precios ni ubicación:
               va a ofrecer que un asesor le pase el detalle. Es a propósito, para que no invente nada.
             </p>
           )}
@@ -105,11 +107,20 @@ function TarjetaProyecto({ proyecto }) {
             placeholder="https://maps.app.goo.gl/..."
           />
           <p className="text-xs text-gray-400 -mt-2">
-            Valeria lo manda cuando preguntan dónde queda, y se le muestra al cliente al confirmar la visita.
+            El agente lo manda cuando preguntan dónde queda, y se le muestra al cliente al confirmar la visita.
             Sácalo desde Google Maps → Compartir → Copiar vínculo.
           </p>
 
-          <Campo label="Estado comercial" name="estado_comercial" value={form.estado_comercial} onChange={cambiar} placeholder="Pre-venta / En obra / Entregado" />
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Campo label="Estado comercial" name="estado_comercial" value={form.estado_comercial} onChange={cambiar} placeholder="Pre-venta / En obra / Entregado" />
+            <Campo label="Constructora dueña del proyecto" name="desarrolladora" value={form.desarrolladora} onChange={cambiar} placeholder="Mi Casa" />
+          </div>
+          <p className="text-xs text-gray-400 -mt-2">
+            Tiene que coincidir con un nombre cargado en <strong>Constructoras</strong>. De ahí sale
+            la gráfica de cuentas que el agente le manda al cliente cuando pregunta dónde pagar.
+            Si está vacío o no coincide, el agente <strong>no da datos de pago</strong> y deriva a un asesor —
+            a propósito: una cuenta equivocada manda el dinero del cliente a otra empresa.
+          </p>
           <Campo
             label="Entrega del título de propiedad"
             name="entrega_titulo"
@@ -120,7 +131,7 @@ function TarjetaProyecto({ proyecto }) {
             rows={3}
           />
           <p className="text-xs text-gray-400 -mt-2">
-            Si dejas esto vacío, Valeria no va a afirmar que el proyecto tiene título: deriva al asesor.
+            Si dejas esto vacío, el agente no va a afirmar que el proyecto tiene título: deriva al asesor.
             Es a propósito — prometer un título que todavía no existe es un problema serio en una venta de terreno.
           </p>
 
@@ -130,12 +141,23 @@ function TarjetaProyecto({ proyecto }) {
             name="imagenes"
             value={form.imagenes}
             onChange={cambiar}
-            placeholder={'https://wspai.vercel.app/proyectos/ejemplo.jpg | Plano de etapas\nhttps://wspai.vercel.app/proyectos/otra.jpg | Pórtico de ingreso'}
+            placeholder={'https://.../plano.jpg | Plano de etapas\nhttps://.../portico.jpg | Pórtico de ingreso'}
             textarea
             rows={4}
           />
+          <div className="-mt-2">
+            <SubirImagen
+              carpeta="proyectos"
+              etiqueta="Subir una foto o plano"
+              onSubida={(url) => setForm(prev => ({
+                ...prev,
+                // Se agrega como línea nueva, con el separador listo para la descripción.
+                imagenes: [String(prev.imagenes || '').trim(), `${url} | `].filter(Boolean).join('\n'),
+              }))}
+            />
+          </div>
           <p className="text-xs text-gray-400 -mt-2">
-            Valeria las manda por WhatsApp cuando el cliente pide ver el proyecto. La descripción
+            El agente las manda por WhatsApp cuando el cliente pide ver el proyecto. La descripción
             después de <code className="bg-gray-100 px-1 rounded">|</code> es para que sepa cuál elegir; el cliente no la ve.
             Tienen que ser URLs públicas — Twilio no puede leer imágenes protegidas.
           </p>
@@ -158,7 +180,7 @@ function TarjetaProyecto({ proyecto }) {
                 onChange={(e) => setForm(prev => ({ ...prev, activo: e.target.checked }))}
                 className="w-4 h-4 rounded border-gray-300 text-ceinys-orange focus:ring-ceinys-orange"
               />
-              Valeria puede ofrecer este proyecto
+              El agente puede ofrecer este proyecto
             </label>
             <button
               onClick={() => mutacion.mutate(form)}
@@ -225,7 +247,7 @@ export default function TabProyectos() {
   return (
     <div className="space-y-5">
       <div className="bg-black rounded-2xl border border-gray-800 shadow-sm p-5">
-        <h2 className="text-base font-bold text-white">Proyectos de Ceinys</h2>
+        <h2 className="text-base font-bold text-white">{MARCA.nombre ? `Proyectos de ${MARCA.nombre}` : "Proyectos"}</h2>
         <p className="text-xs text-gray-500 mt-1">
           Valeria solo habla de los proyectos cargados aquí, y solo cita los datos que completes.
           {sinDatos > 0 && (
@@ -246,7 +268,7 @@ export default function TabProyectos() {
           <p className="text-4xl">⚠️</p>
           <p className="text-sm text-center max-w-md">{error?.message}</p>
           <p className="text-xs text-center max-w-md text-gray-400">
-            Si dice que la tabla no existe, todavía falta correr <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono">supabase-migration-ceinys.sql</code> en Supabase.
+            Si dice que la tabla no existe, todavía falta correr <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono">sql/esquema.sql</code> en Supabase.
           </p>
         </div>
       )}

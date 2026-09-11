@@ -1,6 +1,13 @@
 const OpenAI = require('openai');
 const { obtenerSupabase } = require('../db');
-const { calcularHorariosLibres, formatearFechaCompleta } = require('../utils/fechas');
+const {
+  calcularHorariosLibres,
+  formatearFechaCompleta,
+  resolverHorario,
+  esDiaDeAtencion,
+  describirHorario,
+} = require('../utils/fechas');
+const { buscarPorNombre, normalizar } = require('../utils/proyectos');
 const { crearEnlaceAgenda } = require('../routes/agenda');
 const { enviarAlertaVisita } = require('./email');
 
@@ -20,11 +27,11 @@ const HERRAMIENTAS = [
     type: 'function',
     function: {
       name: 'consultar_proyectos',
-      description: 'Devuelve el detalle de los proyectos inmobiliarios de Ceinys (ubicación, tipo, precios, áreas, financiamiento). Usar SIEMPRE antes de dar cualquier dato concreto sobre un proyecto. Si se pasa "nombre", devuelve solo ese proyecto.',
+      description: 'Devuelve el detalle de los proyectos inmobiliarios de la empresa (ubicación, tipo, precios, áreas, financiamiento). Usar SIEMPRE antes de dar cualquier dato concreto sobre un proyecto. Si se pasa "nombre", devuelve solo ese proyecto.',
       parameters: {
         type: 'object',
         properties: {
-          nombre: { type: 'string', description: 'Nombre del proyecto a consultar. Omitir para traer todos. Ej: "Altos de Sacta"' },
+          nombre: { type: 'string', description: 'Nombre del proyecto a consultar. Omitir para traer todos.' },
         },
         required: [],
       },
@@ -62,6 +69,20 @@ const HERRAMIENTAS = [
   {
     type: 'function',
     function: {
+      name: 'enviar_datos_pago',
+      description: 'Envía por WhatsApp la gráfica oficial con las cuentas bancarias de la empresa dueña del proyecto. Es la ÚNICA forma permitida de dar datos de pago: nunca escribas números de cuenta en el chat. Usar cuando el cliente pregunta dónde pagar, cómo separar, a qué cuenta deposita o pide los datos bancarios.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nombre_proyecto: { type: 'string', description: 'Proyecto que el cliente va a pagar. Obligatorio: cada proyecto puede pertenecer a una empresa distinta, con cuentas distintas.' },
+        },
+        required: ['nombre_proyecto'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'consultar_disponibilidad',
       description: 'Consulta los horarios disponibles para agendar una visita en una fecha específica.',
       parameters: {
@@ -91,14 +112,14 @@ const HERRAMIENTAS = [
     type: 'function',
     function: {
       name: 'agendar_visita',
-      description: 'Agenda una visita guiada a uno de los proyectos de Ceinys.',
+      description: 'Agenda una visita guiada a uno de los proyectos de la empresa.',
       parameters: {
         type: 'object',
         properties: {
           numero_telefono: { type: 'string' },
           nombre_cliente: { type: 'string', description: 'Nombre completo real del cliente.' },
           fecha_visita: { type: 'string', description: 'Formato ISO: "2026-08-14T10:30:00"' },
-          proyecto_interes: { type: 'string', description: 'Nombre exacto del proyecto que va a visitar. Debe ser uno de los proyectos reales de Ceinys.' },
+          proyecto_interes: { type: 'string', description: 'Nombre exacto del proyecto que va a visitar. Debe ser uno de los proyectos reales del catálogo.' },
           notas: { type: 'string', description: 'Información adicional: cuántas personas van, si necesita movilidad, presupuesto aproximado, uso (vivienda o inversión). Opcional.' },
         },
         required: ['numero_telefono', 'nombre_cliente', 'fecha_visita', 'proyecto_interes'],
@@ -178,11 +199,39 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         return { exito: false, mensaje: 'No pude generar el enlace. Pide los datos por chat y usa agendar_visita.' };
       }
 
-      const base = (process.env.APP_URL || 'https://wspai.vercel.app').replace(/\/+$/, '');
+      // Sin APP_URL no hay forma de armar un enlace correcto, y adivinarlo es
+      // peor que no mandarlo: el fallback anterior apuntaba a un dominio fijo,
+      // así que cualquier despliegue nuevo le mandaba a sus clientes el enlace
+      // de OTRA empresa — que encima no resuelve, porque el código del enlace
+      // vive en otra base de datos. Mejor caer al flujo por chat.
+      const base = String(process.env.APP_URL || '').trim().replace(/\/+$/, '');
+
+      if (!base) {
+        console.error('[Agenda] Falta APP_URL: no se puede generar el enlace del calendario.');
+        return {
+          exito: false,
+          mensaje: 'No pude generar el enlace. Pide los datos por chat y usa agendar_visita.',
+        };
+      }
+
+      // El proyecto se guarda canónico, no como lo escribió el modelo.
+      //
+      // Ese valor sale después como `proyecto_sugerido` y la página lo
+      // preselecciona comparando cadenas exactas, así que un "los alamos" no
+      // preseleccionaba nada aunque el catálogo tuviera "Los Álamos": el
+      // cliente tenía que volver a elegir el proyecto que ya había dicho.
+      // Si el nombre es ambiguo se manda null y que elija en el calendario.
+      let proyectoSugerido = null;
+      if (proyecto) {
+        const { data: activos } = await supabase
+          .from('proyectos').select('nombre').eq('activo', true).order('orden', { ascending: true });
+        const hallado = buscarPorNombre(activos, proyecto);
+        if (hallado.coincidencias.length === 1) proyectoSugerido = hallado.coincidencias[0].nombre;
+      }
 
       let codigo;
       try {
-        codigo = await crearEnlaceAgenda(telefono, proyecto);
+        codigo = await crearEnlaceAgenda(telefono, proyectoSugerido);
       } catch (err) {
         console.error('[Agenda] No se pudo crear el enlace:', err.message);
         return { exito: false, mensaje: 'No pude generar el enlace. Pide los datos por chat y usa agendar_visita.' };
@@ -201,18 +250,36 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       const { nombre_proyecto, maximo } = argumentos;
       const tope = Math.min(Math.max(Number(maximo) || 3, 1), 5);
 
-      const { data: encontrados } = await supabase
+      const { data: activos, error: errorCatalogo } = await supabase
         .from('proyectos')
         .select('nombre, imagenes')
-        .ilike('nombre', `%${nombre_proyecto}%`)
         .eq('activo', true)
-        .limit(1);
+        .order('orden', { ascending: true });
 
-      if (!encontrados || encontrados.length === 0) {
+      // Sin esto, una consulta fallida deja `activos` en null y el agente le
+      // dice al cliente que el proyecto no existe, en vez de que hubo un error.
+      if (errorCatalogo) {
+        console.error('[Fotos] No se pudo leer el catalogo:', errorCatalogo.message);
+        return { exito: false, mensaje: 'No pude consultar el catalogo ahora. Ofrece agendar una visita o derivar a un asesor.' };
+      }
+
+      const { coincidencias, ambiguo } = buscarPorNombre(activos, nombre_proyecto);
+
+      if (coincidencias.length === 0) {
         return { exito: false, mensaje: `No encontré un proyecto llamado "${nombre_proyecto}".` };
       }
 
-      const proyecto = encontrados[0];
+      // Nunca mandar fotos "a ver si pega". Con `.limit(1)` sobre un ILIKE,
+      // "Sauces" matcheaba "Los Sauces" y "Casa Sauces" y se quedaba con uno
+      // en silencio: el cliente terminaba viendo los renders de otro proyecto.
+      if (ambiguo) {
+        return {
+          exito: false,
+          mensaje: `"${nombre_proyecto}" coincide con varios proyectos: ${coincidencias.map(p => p.nombre).join(', ')}. Pregúntale al cliente cuál quiere ver antes de mandarle fotos.`,
+        };
+      }
+
+      const proyecto = coincidencias[0];
       const imagenes = parsearImagenes(proyecto.imagenes).slice(0, tope);
 
       if (imagenes.length === 0) {
@@ -229,24 +296,33 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         proyecto: proyecto.nombre,
         enviadas: imagenes.length,
         detalle: imagenes.map(i => i.descripcion).filter(Boolean),
-        mensaje: `Se están enviando ${imagenes.length} imagen(es) de ${proyecto.nombre} por WhatsApp. Acompañalas con un mensaje corto que las presente; no las describas en detalle porque el cliente las va a ver.`,
+        mensaje: `Se están enviando ${imagenes.length} imagen(es) de ${proyecto.nombre} por WhatsApp. Acompáñalas con un mensaje corto que las presente; no las describas en detalle porque el cliente las va a ver.`,
       };
     }
 
     case 'consultar_proyectos': {
       const { nombre: nombreProyecto } = argumentos;
 
-      let consulta = supabase
+      const { data: todos, error } = await supabase
         .from('proyectos')
         .select('*')
         .eq('activo', true)
         .order('orden', { ascending: true });
 
-      if (nombreProyecto) consulta = consulta.ilike('nombre', `%${nombreProyecto}%`);
-
-      const { data: proyectos, error } = await consulta;
-
       if (error) return { error: `No pude consultar los proyectos: ${error.message}` };
+
+      // El filtro por nombre se resuelve en Node, no con ILIKE: así los
+      // comodines de LIKE que pueda escribir el modelo no alteran la búsqueda
+      // y "Los Alamos" encuentra "Los Álamos".
+      //
+      // Ojo: acá se filtra por "contiene" en vez de usar la precedencia de
+      // buscarPorNombre. Esto es un LISTADO, no una acción sobre un proyecto:
+      // preguntar por "Los Álamos" tiene que devolver también "Los Álamos II",
+      // que la precedencia escondería al encontrar el match exacto.
+      const objetivo = normalizar(nombreProyecto);
+      const proyectos = nombreProyecto
+        ? (todos || []).filter(p => normalizar(p.nombre).includes(objetivo))
+        : (todos || []);
 
       if (!proyectos || proyectos.length === 0) {
         return {
@@ -268,6 +344,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         if (p.area_desde) salida.area_desde = p.area_desde;
         if (p.caracteristicas) salida.caracteristicas = p.caracteristicas;
         if (p.financiamiento) salida.financiamiento = p.financiamiento;
+        if (p.desarrolladora) salida.desarrolladora = p.desarrolladora;
         if (p.estado_comercial) salida.estado_comercial = p.estado_comercial;
         if (p.entrega_titulo) salida.entrega_titulo = p.entrega_titulo;
         if (esUrlSegura(p.mapa_url)) salida.mapa_url = p.mapa_url.trim();
@@ -278,7 +355,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
           salida.fotos_de = fotos.map(f => f.descripcion).filter(Boolean);
         }
         if (!p.entrega_titulo) {
-          salida.nota_titulo = 'No hay dato cargado sobre la entrega del título de este proyecto. NO afirmes que ya tiene título: decí que un asesor te confirma la fecha exacta.';
+          salida.nota_titulo = 'No hay dato cargado sobre la entrega del título de este proyecto. NO afirmes que ya tiene título: dile que un asesor le confirma la fecha exacta.';
         }
 
         const camposCargados = Object.keys(salida).length - 1;
@@ -292,8 +369,83 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       return { proyectos: limpios, total: limpios.length };
     }
 
+    case 'enviar_datos_pago': {
+      const { nombre_proyecto } = argumentos;
+
+      const { data: activos, error: errorCatalogo } = await supabase
+        .from('proyectos')
+        .select('nombre, desarrolladora')
+        .eq('activo', true)
+        .order('orden', { ascending: true });
+
+      if (errorCatalogo) {
+        console.error('[Pago] No se pudo leer el catalogo:', errorCatalogo.message);
+        return { exito: false, mensaje: 'No pude consultar los datos de pago ahora. Dile que un asesor se los envía enseguida.' };
+      }
+
+      const { coincidencias, ambiguo } = buscarPorNombre(activos, nombre_proyecto);
+
+      // Acá la ambigüedad no es un detalle de UX: cada proyecto puede ser de una
+      // empresa distinta, y mandar las cuentas equivocadas manda la inicial del
+      // cliente —decenas de miles de soles— a otra empresa. Ante la duda, no se
+      // manda nada.
+      if (ambiguo) {
+        return {
+          exito: false,
+          mensaje: `"${nombre_proyecto}" coincide con varios proyectos: ${coincidencias.map(p => p.nombre).join(', ')}. Pregúntale al cliente exactamente cuál es ANTES de darle datos de pago. Cada proyecto puede tener cuentas distintas.`,
+        };
+      }
+
+      if (coincidencias.length === 0) {
+        return { exito: false, mensaje: `No encontré un proyecto llamado "${nombre_proyecto}". Confirma con el cliente cuál es antes de darle datos de pago.` };
+      }
+
+      const proyecto = coincidencias[0];
+
+      if (!proyecto.desarrolladora) {
+        console.error(`[Pago] El proyecto "${proyecto.nombre}" no tiene desarrolladora asignada.`);
+        return { exito: false, mensaje: 'No tengo los datos de pago de ese proyecto cargados. Dile que un asesor se los envía enseguida y NO inventes ninguna cuenta.' };
+      }
+
+      const { data: empresas } = await supabase
+        .from('desarrolladoras')
+        .select('nombre, razon_social, pago_imagen_url');
+
+      const empresa = (empresas || []).find(e => normalizar(e.nombre) === normalizar(proyecto.desarrolladora));
+
+      if (!empresa || !esUrlSegura(empresa.pago_imagen_url)) {
+        console.error(`[Pago] Sin gráfica de cuentas para "${proyecto.desarrolladora}".`);
+        return { exito: false, mensaje: 'No tengo la gráfica de cuentas de esa empresa cargada. Dile que un asesor se la envía enseguida y NO dictes ningún número de cuenta.' };
+      }
+
+      contexto.imagenes = (contexto.imagenes || []).concat([empresa.pago_imagen_url.trim()]);
+
+      return {
+        exito: true,
+        proyecto: proyecto.nombre,
+        empresa: empresa.razon_social || empresa.nombre,
+        mensaje: `Se está enviando la gráfica oficial de cuentas de ${empresa.razon_social || empresa.nombre}, la empresa de ${proyecto.nombre}. `
+               + 'Dile en una frase corta que ahí están las cuentas y que el titular es esa empresa, para que verifique el nombre antes de transferir. '
+               + 'NUNCA escribas números de cuenta en el chat, ni los repitas, ni los resumas: la imagen es el único medio.',
+      };
+    }
+
     case 'consultar_disponibilidad': {
       const { fecha } = argumentos;
+
+      // El horario sale de la configuracion de cada clienta, no del codigo.
+      // `contexto.config` es la fila completa (el webhook hace select('*')).
+      const horario = resolverHorario(contexto.config);
+
+      if (!esDiaDeAtencion(fecha, horario)) {
+        return {
+          fecha,
+          horarios_libres: [],
+          total_disponibles: 0,
+          mensaje: `El ${fecha} no es dia de atencion. El horario es: ${describirHorario(horario)}. Ofrecele otro dia.`,
+        };
+      }
+
       const { data: visitas } = await supabase
         .from('visitas')
         .select('*')
@@ -302,7 +454,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         .neq('estado', 'cancelada')
         .order('fecha_visita', { ascending: true });
 
-      const libres = calcularHorariosLibres(visitas || []);
+      const libres = calcularHorariosLibres(visitas || [], horario);
       const ocupados = (visitas || []).map(v => ({
         hora: v.fecha_visita.substring(11, 16),
         proyecto: v.proyecto_interes,
@@ -350,25 +502,40 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       const { numero_telefono, nombre_cliente, fecha_visita, proyecto_interes, notas } = argumentos;
 
       // El proyecto tiene que existir de verdad
-      const { data: proyectoValido } = await supabase
+      const { data: disponibles, error: errorCatalogo } = await supabase
         .from('proyectos')
         .select('nombre')
-        .ilike('nombre', proyecto_interes)
         .eq('activo', true)
-        .limit(1);
+        .order('orden', { ascending: true });
 
-      if (!proyectoValido || proyectoValido.length === 0) {
-        const { data: disponibles } = await supabase
-          .from('proyectos')
-          .select('nombre')
-          .eq('activo', true)
-          .order('orden', { ascending: true });
+      if (errorCatalogo) {
+        console.error('[Agendar] No se pudo leer el catalogo:', errorCatalogo.message);
+        return { exito: false, mensaje: 'No pude validar el proyecto ahora. Pidele disculpas al cliente y ofrece que un asesor lo contacte.' };
+      }
 
+      const hallazgo = buscarPorNombre(disponibles, proyecto_interes);
+      const listaDisponibles = (disponibles || []).map(p => p.nombre).join(', ');
+
+      if (hallazgo.coincidencias.length === 0) {
         return {
           exito: false,
-          mensaje: `"${proyecto_interes}" no es un proyecto de Ceinys. Preguntale al cliente cuál de estos quiere visitar: ${(disponibles || []).map(p => p.nombre).join(', ')}.`,
+          mensaje: `"${proyecto_interes}" no es uno de los proyectos disponibles. Pregúntale al cliente cuál de estos quiere visitar: ${listaDisponibles}.`,
         };
       }
+
+      // Agendar sobre un nombre ambiguo dejaría la visita colgando del proyecto
+      // equivocado, y eso recién se descubre cuando el cliente llega al lugar.
+      if (hallazgo.ambiguo) {
+        return {
+          exito: false,
+          mensaje: `"${proyecto_interes}" coincide con varios proyectos: ${hallazgo.coincidencias.map(p => p.nombre).join(', ')}. Pregúntale al cliente cuál es antes de agendar.`,
+        };
+      }
+
+      // La visita se guarda con el nombre tal cual está en el catálogo, no con
+      // lo que escribió el modelo: así el panel y los reportes no terminan con
+      // "los sauces", "Los Sauces" y "LOS SAUCES" como si fueran tres proyectos.
+      const proyectoCanonico = hallazgo.coincidencias[0].nombre;
 
       const { data: existente } = await supabase
         .from('visitas')
@@ -390,7 +557,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
           numero_telefono,
           nombre_cliente,
           fecha_visita,
-          proyecto_interes: proyectoValido[0].nombre,
+          proyecto_interes: proyectoCanonico,
           estado: 'confirmada',
           notas: notas || null,
         })
@@ -408,7 +575,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       return {
         exito: true,
         id_visita: nuevaVisita.id,
-        mensaje: `✅ Visita confirmada para ${nombre_cliente} el ${formatearFechaCompleta(fecha_visita)} — ${proyectoValido[0].nombre}.`,
+        mensaje: `✅ Visita confirmada para ${nombre_cliente} el ${formatearFechaCompleta(fecha_visita)} — ${proyectoCanonico}.`,
       };
     }
 
@@ -504,7 +671,22 @@ function lineaSiExiste(etiqueta, valor) {
 }
 
 function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
-  const nombreEmpresa = config.nombre_agencia || 'Ceinys';
+  // Sin nombre cargado NO se cae a una marca concreta. El esquema deja este
+  // campo en NULL a proposito, y un fallback a 'Ceinys' haria que el agente de
+  // otra clienta se presente con el nombre de otra empresa ante sus propios
+  // compradores: exactamente el fallo silencioso que se quiso eliminar.
+  const nombreEmpresa = (config.nombre_agencia || '').trim();
+  if (!nombreEmpresa) {
+    console.error('[Config] nombre_agencia esta vacio: carga los datos de la empresa en el panel.');
+  }
+  const empresaODefecto = nombreEmpresa || 'la empresa';
+
+  // El nombre del agente y el rubro salen de la configuracion. Estaban clavados
+  // como "Valeria" y "constructora e inmobiliaria peruana", que para una asesora
+  // independiente es directamente falso: la haria afirmarle a un comprador que
+  // ella construye las obras que solo intermedia.
+  const nombreAgente = (config.nombre_agente || '').trim() || 'Valeria';
+  const tipoNegocio = (config.tipo_negocio || '').trim();
 
   let serviciosTexto = config.servicios || '[]';
   try { serviciosTexto = JSON.parse(serviciosTexto).join(', '); } catch { /* usa como string */ }
@@ -515,9 +697,11 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
     hour: '2-digit', minute: '2-digit',
   });
 
+  const horarioTexto = describirHorario(resolverHorario(config));
+
   const listaProyectos = nombresProyectos.length
     ? nombresProyectos.map(n => `  • ${n}`).join('\n')
-    : '  (no hay proyectos cargados — derivá al asesor)';
+    : '  (no hay proyectos cargados — deriva al asesor)';
 
   const casosTexto = config.casos_exito ? `\n\nCasos y resultados que puedes mencionar:\n${config.casos_exito}` : '';
   const faqTexto = config.preguntas_frecuentes ? `\n\nPreguntas frecuentes y cómo responderlas:\n${config.preguntas_frecuentes}` : '';
@@ -539,22 +723,24 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
       + 'NO inventes ninguno. Si el cliente pide un teléfono, dirección u horario, dile que un asesor '
       + 'lo va a contactar por este mismo WhatsApp para coordinar.';
 
-  return `Eres Valeria, la asesora virtual de ${nombreEmpresa}, constructora e inmobiliaria peruana. Eres cercana, clara y orientada a que el cliente conozca el proyecto en persona.${reglasTexto}
+  return `Eres ${nombreAgente}, la asesora virtual de ${empresaODefecto}${tipoNegocio ? `, ${tipoNegocio}` : ''}. Eres cercana, clara y orientada a que el cliente conozca el proyecto en persona.${reglasTexto}
 
 FECHA Y HORA ACTUAL (Perú, Lima): ${ahora}
 Usa esta fecha como referencia para toda consulta de disponibilidad y agendamiento. Nunca agendes en el pasado.
 
 Tu rol es:
-- Responder consultas sobre los proyectos inmobiliarios de ${nombreEmpresa}
+- Responder consultas sobre los proyectos inmobiliarios de ${empresaODefecto}
 - Agendar, consultar, cancelar o reprogramar VISITAS a los proyectos
 - Entender qué busca el cliente (vivienda o inversión, presupuesto, zona preferida, forma de pago)
 - Generar confianza y llevar la conversación hacia una visita agendada
 
-PROYECTOS DE ${nombreEmpresa.toUpperCase()} (los únicos que existen — nunca menciones ni inventes otro):
+PROYECTOS DE ${empresaODefecto.toUpperCase()} (los únicos que existen — nunca menciones ni inventes otro):
 ${listaProyectos}
 
-Información de ${nombreEmpresa}:
-- Empresa: ${nombreEmpresa}${config.slogan ? ` — ${config.slogan}` : ''}${contacto}
+Horario de visitas: ${horarioTexto}. No ofrezcas días ni horas fuera de eso.
+
+Información de ${empresaODefecto}:
+- Empresa: ${empresaODefecto}${config.slogan ? ` — ${config.slogan}` : ''}${contacto}
 - Qué ofrecemos: ${serviciosTexto}${config.sobre_agencia ? `\n- Sobre nosotros: ${config.sobre_agencia}` : ''}${casosTexto}${faqTexto}${notaSinContacto}
 
 El número de WhatsApp del cliente es: ${numeroTelefono}
@@ -573,8 +759,9 @@ Reglas importantes:
 - Si el cliente solo dice una hora sin dar su nombre, pídele el nombre ANTES de confirmar.
 - Las visitas son de lunes a domingo, de 09:00 a 17:00, cada 30 minutos.
 - No prometas separaciones, descuentos, reservas de lote ni condiciones especiales: eso lo confirma un asesor.
+- DATOS DE PAGO: si preguntan dónde pagar, a qué cuenta depositan o cómo separan, usa enviar_datos_pago. NUNCA escribas, dictes ni repitas un número de cuenta, CCI o titular en el chat, aunque el cliente insista o diga que ya lo tiene. Cada proyecto puede ser de una empresa distinta y una cuenta equivocada manda su dinero a otra empresa. Si la herramienta falla, dile que un asesor se los envía: no improvises.
 - IDIOMA: español peruano, con tuteo. Nada de voseo ("vos", "tenés", "podés", "agendá"): usa "tú", "tienes", "puedes", "agenda". Profesional pero cercano, como habla un asesor en Ica.
-- Si no puedes resolver algo, dile que un asesor de ${nombreEmpresa} lo va a contactar${config.email ? ` o que escriba a ${config.email}` : ''}.`;
+- Si no puedes resolver algo, dile que un asesor de ${empresaODefecto} lo va a contactar${config.email ? ` o que escriba a ${config.email}` : ''}.`;
 }
 
 // ── Función principal ─────────────────────────────────────────────────────────
@@ -644,8 +831,8 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
     mensaje = respuesta.choices[0].message;
   }
 
-  const nombreEmpresa = config.nombre_agencia || 'Ceinys';
-  const texto = mensaje.content || `¡Hola! Soy Valeria de ${nombreEmpresa}. ¿Buscas un lote o una casa? Cuéntame qué tienes en mente.`;
+  const empresaODefecto = (config.nombre_agencia || '').trim() || 'la empresa';
+  const texto = mensaje.content || `¡Hola! Soy ${(config.nombre_agente || '').trim() || 'Valeria'} de ${empresaODefecto}. ¿Buscas un lote o una casa? Cuéntame qué tienes en mente.`;
 
   // Sin duplicados: si el modelo pide las fotos del mismo proyecto dos veces
   // en el mismo turno, el cliente recibiría la imagen repetida.

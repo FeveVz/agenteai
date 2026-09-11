@@ -30,7 +30,7 @@ async function manejarRespuesta(res) {
   if (res.status === 401) {
     notificarSesionExpirada();
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Sesión expirada. Volvé a ingresar.');
+    throw new Error(data.error || 'Sesión expirada. Vuelve a ingresar.');
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -101,3 +101,10 @@ export const obtenerConfiguracion = () => pedir('/configuracion');
 export const actualizarProyecto = ({ id, ...datos }) => pedirJSON(`/proyectos/${id}`, 'PUT', datos);
 export const crearProyecto = (datos) => pedirJSON('/proyectos', 'POST', datos);
 export const actualizarConfiguracion = (datos) => pedirJSON('/configuracion', 'PUT', datos);
+
+export const obtenerDesarrolladoras = () => pedir('/desarrolladoras');
+export const crearDesarrolladora = (datos) => pedirJSON('/desarrolladoras', 'POST', datos);
+export const actualizarDesarrolladora = ({ id, ...datos }) => pedirJSON(`/desarrolladoras/${id}`, 'PUT', datos);
+
+/** Pide un token de un solo uso para subir una imagen directo a Supabase Storage. */
+export const pedirFirmaSubida = (datos) => pedirJSON('/archivos/firma', 'POST', datos);

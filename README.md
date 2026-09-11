@@ -44,8 +44,11 @@ agenteai/
 │       ├── TabVisitas.jsx     → CalendarioVisitas / ListaVisitas
 │       ├── TabProyectos.jsx   ← Carga de datos de cada proyecto
 │       └── TabConfiguracion.jsx
-├── supabase-schema.sql            ← Instalación limpia
-└── supabase-migration-ceinys.sql  ← Migración desde el esquema anterior
+├── sql/
+│   ├── esquema.sql            ← Instalación limpia. Reusable para cualquier cliente
+│   └── clientes/ceinys/       ← Datos de Ceinys. No correr en otra base
+└── test/
+    └── regresion.test.js      ← `npm test` (runner nativo de Node, sin dependencias)
 ```
 
 ### Dónde vive cada cosa
@@ -60,7 +63,11 @@ Esto es lo más importante de entender antes de editar:
 | Diseño de la landing | `client/src/pages/Landing.jsx` (hardcodeado) |
 
 Los datos de la empresa **no están en el código**: se leen de la tabla `configuracion_agencia`
-en cada mensaje. Cambiar el código no cambia lo que Valeria dice sobre Ceinys.
+en cada mensaje. Cambiar el código no cambia lo que el agente dice sobre la empresa.
+
+Eso es lo que permite que un mismo repositorio atienda a varios clientes: **un despliegue de
+Vercel por cliente**, cada uno con su base de Supabase, su número de WhatsApp y su
+`PANEL_PASSWORD`. Un `git push` a `master` los actualiza a todos.
 
 ---
 
@@ -68,15 +75,14 @@ en cada mensaje. Cambiar el código no cambia lo que Valeria dice sobre Ceinys.
 
 ### Instalación nueva
 
-Pegar `supabase-schema.sql` en **Supabase → SQL Editor → Run**.
+Pegar **`sql/esquema.sql`** en Supabase → SQL Editor → Run. Es el único SQL que hace falta:
+crea las cinco tablas sin sembrar datos de ningún negocio. Los datos se cargan después
+desde el panel.
 
-### Migrar desde el esquema anterior
+Ver [`sql/README.md`](sql/README.md) para el detalle y para qué **no** hay que correr.
 
-Si la base ya venía del esquema viejo (`reuniones`, `tipo_servicio`, `empresa`), correr
-`supabase-migration-ceinys.sql`. Es idempotente: se puede ejecutar varias veces sin romper nada.
-
-> ⚠️ Correr la migración **antes** de desplegar el código. El código nuevo lee las tablas
-> `visitas` y `proyectos`; si no existen, la API responde 500.
+> ⚠️ Correr el esquema **antes** de desplegar el código. Si las tablas no existen,
+> la API responde 500.
 
 ### Tablas
 
@@ -85,7 +91,8 @@ Si la base ya venía del esquema viejo (`reuniones`, `tipo_servicio`, `empresa`)
 | `mensajes_whatsapp` | Historial de la conversación (memoria de los últimos 20 mensajes) |
 | `visitas` | Visitas agendadas a los proyectos |
 | `proyectos` | Catálogo. Valeria solo menciona los que están aquí con `activo = true` |
-| `configuracion_agencia` | Datos de Ceinys y reglas del agente |
+| `configuracion_agencia` | Datos de la empresa y reglas del agente |
+| `enlaces_agenda` | Códigos cortos de los enlaces de calendario que manda el agente |
 
 ---
 
@@ -96,11 +103,17 @@ Copiar `.env.example` a `.env` y completar:
 ```env
 OPENAI_API_KEY=sk-proj-...
 SUPABASE_URL=https://xxxx.supabase.co
+VITE_MARCA_NOMBRE=Pamela Barrios
+VITE_MARCA_DESCRIPTOR=Asesora Inmobiliaria en Ica
+VITE_MARCA_AGENTE=Valeria
 SUPABASE_SERVICE_KEY=...
+APP_URL=https://tu-despliegue.vercel.app
 TWILIO_ACCOUNT_SID=...
 TWILIO_AUTH_TOKEN=...
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+TWILIO_WHATSAPP_FROM=whatsapp:+51999999999
 PANEL_PASSWORD=...
+RESEND_API_KEY=
+RESEND_FROM=
 PORT=3001
 ```
 
@@ -110,9 +123,12 @@ En Vercel se configuran en **Project Settings → Environment Variables**.
 |---|---|
 | `OPENAI_API_KEY` | El agente no puede responder |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Toda la API responde 500 |
+| `APP_URL` | El agente **no manda el enlace del calendario** y pide los datos por chat |
+| `VITE_MARCA_*` | El título, el favicon y la landing quedan genéricos (nunca con la marca de otro cliente) |
 | `TWILIO_AUTH_TOKEN` | No se valida la firma del webhook **y** se pierden las respuestas de más de 9s |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_WHATSAPP_FROM` | Se pierden las respuestas de más de 9s |
-| `PANEL_PASSWORD` | **El panel y la API quedan sin protección** |
+| `PANEL_PASSWORD` | **La API de gestión queda cerrada (503) y el panel no abre** |
+| `RESEND_API_KEY` | No se envía el aviso por correo. Agendar sigue funcionando |
 
 ---
 
@@ -141,6 +157,14 @@ middleware del backend**. Saltear la UI no da acceso a nada.
 
 Esto es lo que permite apagar la protección de Vercel (*Deployment Protection*) sin exponer
 las conversaciones ni los teléfonos de los clientes.
+
+> **Sin `PANEL_PASSWORD` la API de gestión queda cerrada, no abierta.** Responde `503` y el
+> panel muestra qué falta configurar. Antes era al revés: dejaba pasar todo, con la idea de
+> que un despliegue incompleto no se volviera inusable. Con varios clientes sobre el mismo
+> código ese default se volvió peligroso — a un despliegue nuevo al que se le olvidara la
+> variable le quedaban las conversaciones y los teléfonos de sus clientes abiertos a
+> internet, y `/api/health` seguía respondiendo `ok: true`. Un panel que no abre se nota en
+> cinco minutos; uno público, no.
 
 ---
 
@@ -217,7 +241,7 @@ Las rutas marcadas 🔒 exigen `Authorization: Bearer <token>`.
 - **Timeout de Twilio.** Twilio corta el webhook a los ~10s. A los 9s el servidor responde con
   TwiML vacío y, cuando OpenAI termina, manda la respuesta por la REST API. Por eso hacen falta
   las credenciales de Twilio: sin ellas, las respuestas lentas se pierden.
-- **Visitas de 9:00 a 18:00, cada 30 minutos.** Un horario ocupado bloquea a todos los clientes,
+- **Visitas de 09:00 a 17:00, cada 30 minutos.** Un horario ocupado bloquea a todos los clientes,
   no solo al mismo proyecto — pensado para no sobrecargar al asesor que recibe.
 - **Rate limit:** 30 mensajes por minuto por número.
 - El panel refresca mensajes y visitas cada 5 segundos.

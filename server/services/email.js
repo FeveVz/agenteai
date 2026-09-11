@@ -3,8 +3,29 @@ const { formatearFechaCompleta } = require('../utils/fechas');
 // Envío vía Resend (API REST, sin dependencias). Con RESEND_API_KEY alcanza.
 const API_RESEND = 'https://api.resend.com/emails';
 
-/** Remitente por defecto: el dominio de pruebas de Resend, que no requiere verificar nada. */
-const REMITENTE_POR_DEFECTO = 'Ceinys <onboarding@resend.dev>';
+/** Casilla por defecto: el dominio de pruebas de Resend, que no requiere verificar nada. */
+const CORREO_POR_DEFECTO = 'onboarding@resend.dev';
+
+/**
+ * Arma la cabecera From.
+ *
+ * El nombre sale de la configuración que carga cada clienta, así que puede
+ * traer comas o puntos ("Barrios & Asociados, S.A.C."). Sin comillar, la coma
+ * se lee como separador de direcciones y Resend rechaza el envío con un 422.
+ * Comillamos siempre: es válido para cualquier display-name y evita tener que
+ * enumerar los caracteres especiales del RFC 5322.
+ */
+function construirRemitente(nombreEmpresa) {
+  if (process.env.RESEND_FROM) return process.env.RESEND_FROM;
+
+  const nombre = String(nombreEmpresa == null ? '' : nombreEmpresa)
+    .replace(/[\r\n]+/g, ' ') // un salto de línea acá sería inyección de cabeceras
+    .trim();
+
+  if (!nombre) return CORREO_POR_DEFECTO;
+
+  return `"${nombre.replace(/["\\]/g, '\\$&')}" <${CORREO_POR_DEFECTO}>`;
+}
 
 function estaConfigurado() {
   return Boolean(process.env.RESEND_API_KEY);
@@ -25,7 +46,7 @@ function escapar(txt) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function construirHtml({ nombre, telefono, proyecto, fechaLegible, notas, origen }) {
+function construirHtml({ nombre, telefono, proyecto, fechaLegible, notas, origen, empresa }) {
   const filas = [
     ['Cliente', escapar(nombre)],
     ['Teléfono', `<a href="https://wa.me/${escapar(String(telefono).replace(/\D/g, ''))}" style="color:#F5851F;text-decoration:none">${escapar(telefono)}</a>`],
@@ -39,7 +60,7 @@ function construirHtml({ nombre, telefono, proyecto, fechaLegible, notas, origen
 <html><body style="margin:0;padding:24px;background:#f5f5f5;font-family:system-ui,-apple-system,'Segoe UI',sans-serif">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e5e5">
     <div style="background:#000;padding:20px 24px">
-      <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:-0.5px">CEINYS</span>
+      <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:-0.5px">${escapar(empresa || 'Nueva visita')}</span>
       <span style="display:inline-block;width:7px;height:7px;background:#F5851F;border-radius:2px;margin-left:6px;vertical-align:middle"></span>
       <p style="color:#999;font-size:12px;margin:4px 0 0">Nueva visita agendada</p>
     </div>
@@ -52,7 +73,7 @@ function construirHtml({ nombre, telefono, proyecto, fechaLegible, notas, origen
     </table>
     <div style="padding:18px 24px;background:#fafafa">
       <p style="margin:0;color:#888;font-size:12px;line-height:1.5">
-        Valeria agendó esta visita automáticamente. Puedes verla en el panel, pestaña Visitas.
+        La asesora virtual agendó esta visita automáticamente. Puedes verla en el panel, pestaña Visitas.
       </p>
     </div>
   </div>
@@ -87,7 +108,7 @@ async function enviarAlertaVisita(visita, config) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || REMITENTE_POR_DEFECTO,
+        from: construirRemitente(config && config.nombre_agencia),
         to: destinatarios,
         subject: asunto,
         html: construirHtml({
@@ -97,6 +118,7 @@ async function enviarAlertaVisita(visita, config) {
           fechaLegible,
           notas: visita.notas,
           origen: visita.origen,
+          empresa: config && config.nombre_agencia,
         }),
       }),
     });
@@ -115,4 +137,4 @@ async function enviarAlertaVisita(visita, config) {
   }
 }
 
-module.exports = { enviarAlertaVisita, estaConfigurado, parsearDestinatarios };
+module.exports = { enviarAlertaVisita, estaConfigurado, parsearDestinatarios, construirRemitente };

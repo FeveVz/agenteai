@@ -1,20 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MARCA } from '../config/marca';
 
-// Espejo de los proyectos sembrados en la tabla `proyectos`.
-// Se deja fijo a propósito: la landing es pública y no debería
-// depender de que Supabase esté arriba para poder renderizar.
-const PROYECTOS = [
-  'Altos de Sacta',
-  'Valle Sacta',
-  'Arenas del Valle',
-  'Sol de Carhuaz',
-  'Club Carhuaz',
-  'La Palma Paracas',
-  'Monte Alegre',
-  'Los Sauces',
-  'Casa Sauces',
-];
+// Antes acá vivía un arreglo con los 9 proyectos de Ceinys, clavado a mano.
+// Con un solo repositorio atendiendo a varias clientas eso era una fuga:
+// el despliegue de cualquier otra publicaba el catálogo de Ceinys en la raíz
+// de su propio dominio, a un recorte de URL del enlace que reciben sus
+// compradores por WhatsApp.
 
 function useScrollAnimation() {
   const ref = useRef(null);
@@ -36,10 +28,10 @@ function useScrollAnimation() {
   return ref;
 }
 
-function LogoCeinys({ className = '' }) {
+function LogoMarca({ className = '' }) {
   return (
     <span className={`inline-flex items-baseline gap-2 ${className}`}>
-      <span className="font-bold tracking-tight text-white">CEINYS</span>
+      <span className="font-bold tracking-tight text-white uppercase">{MARCA.nombre}</span>
       <span className="w-2 h-2 bg-ceinys-orange rounded-sm" />
     </span>
   );
@@ -56,9 +48,9 @@ export default function Landing() {
       <header className="sticky top-0 z-50 bg-black border-b border-gray-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex flex-col">
-            <LogoCeinys className="text-xl" />
+            <LogoMarca className="text-xl" />
             <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-0.5">
-              Constructora e Inmobiliaria
+              {MARCA.descriptor}
             </span>
           </div>
           <button
@@ -90,8 +82,8 @@ export default function Landing() {
                 <span className="text-ceinys-blue">AGENDADA.</span>
               </h1>
               <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-lg">
-                Valeria, nuestra asesora con IA, atiende por WhatsApp a toda hora. Responde
-                sobre los proyectos de Ceinys, entiende qué busca cada cliente y le agenda
+                {MARCA.agente}, nuestra asesora con IA, atiende por WhatsApp a toda hora.
+                Responde sobre cada proyecto, entiende qué busca el cliente y le agenda
                 la visita — sin que un asesor tenga que estar conectado.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -111,7 +103,7 @@ export default function Landing() {
 
               <div className="flex gap-10 mt-12 pt-10 border-t border-gray-800">
                 {[
-                  { valor: `${PROYECTOS.length}`, label: 'Proyectos en cartera' },
+                  { valor: '1', label: 'Número de WhatsApp' },
                   { valor: '24/7', label: 'Atención por WhatsApp' },
                   { valor: '0', label: 'Consultas sin responder' },
                 ].map((stat) => (
@@ -126,25 +118,33 @@ export default function Landing() {
             <div className="flex justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
               <div className="relative">
                 <div className="w-72 h-72 bg-gray-900 border border-gray-800 rounded-3xl flex items-center justify-center">
+                  {/* Este bloque partía el nombre en dos mitades ("CEI" en blanco,
+                      "NYS" en naranja) para colorear la segunda. El corte silábico
+                      era propio de la palabra CEINYS: no hay variable que lo
+                      arregle, así que se pinta el nombre entero. */}
                   <div className="text-center px-6">
-                    <p className="text-white text-5xl font-bold tracking-tighter leading-none">CEI</p>
-                    <p className="text-ceinys-orange text-5xl font-bold tracking-tighter leading-none">NYS</p>
-                    <div className="mt-4 pt-4 border-t border-gray-800">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
-                        Constructora<br />e Inmobiliaria
-                      </p>
-                    </div>
+                    <p className="text-white text-4xl font-bold tracking-tighter leading-tight uppercase break-words">
+                      {MARCA.nombre}
+                    </p>
+                    <span className="inline-block w-8 h-1 bg-ceinys-orange rounded-full mt-3" />
+                    {MARCA.descriptor && (
+                      <div className="mt-4 pt-4 border-t border-gray-800">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
+                          {MARCA.descriptor}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="absolute -top-4 -right-6 bg-white rounded-2xl shadow-2xl p-4 max-w-52">
-                  <p className="text-xs text-gray-400 mb-1">Valeria — Ahora</p>
+                  <p className="text-xs text-gray-400 mb-1">{MARCA.agente} — Ahora</p>
                   <p className="text-sm text-gray-800 font-medium">
                     ¡Hola! ¿Buscas un lote para vivir o para invertir?
                   </p>
                 </div>
                 <div className="absolute -bottom-4 -left-6 bg-ceinys-blue rounded-2xl shadow-lg p-4 max-w-48">
                   <p className="text-xs text-sky-50 font-medium mb-1">Visita confirmada</p>
-                  <p className="text-sm text-white font-semibold">Altos de Sacta — sábado 10:00</p>
+                  <p className="text-sm text-white font-semibold">Visita agendada — sábado 10:00</p>
                 </div>
               </div>
             </div>
@@ -156,7 +156,7 @@ export default function Landing() {
       <section className="bg-gray-100 py-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <p className="text-center text-gray-400 text-sm font-medium tracking-widest uppercase">
-            Ceinys — Constructora e Inmobiliaria
+            {MARCA.descriptor ? `${MARCA.nombre} — ${MARCA.descriptor}` : MARCA.nombre}
           </p>
         </div>
       </section>
@@ -166,7 +166,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16 animar-al-scroll">
             <h2 className="text-4xl md:text-5xl font-bold text-black mb-4 leading-tight">
-              Lo que Valeria<br />hace por el equipo
+              Lo que {MARCA.agente}<br />hace por el equipo
             </h2>
             <p className="text-gray-500 text-lg max-w-xl mx-auto">
               Tu asesora IA filtra y agenda mientras el equipo comercial cierra ventas.
@@ -178,7 +178,7 @@ export default function Landing() {
               {
                 numero: '01',
                 titulo: 'Disponible 24/7',
-                descripcion: 'Ningún interesado queda sin respuesta. Valeria contesta a cualquier hora, fines de semana y feriados incluidos.',
+                descripcion: 'Ningún interesado queda sin respuesta. El agente contesta a cualquier hora, fines de semana y feriados incluidos.',
               },
               {
                 numero: '02',
@@ -205,27 +205,11 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Proyectos */}
-      <section className="py-20 bg-black">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-3">Nuestros proyectos</h2>
-            <p className="text-gray-500">
-              Valeria solo habla de estos proyectos — nunca inventa uno que no exista
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            {PROYECTOS.map((proyecto) => (
-              <span
-                key={proyecto}
-                className="border border-gray-700 text-gray-300 hover:border-ceinys-orange hover:text-ceinys-orange text-sm font-medium px-4 py-2 rounded-full transition-colors cursor-default"
-              >
-                {proyecto}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Antes acá se listaba el catálogo, leído de un arreglo fijo con los
+          proyectos de Ceinys. Mostrarlo de verdad exigiría un endpoint público
+          nuevo, y una landing no lo justifica: el catálogo real ya se lo da el
+          agente por WhatsApp, que además es el único que sabe cuáles siguen
+          activos. */}
 
       {/* Cómo funciona */}
       <section id="como-funciona" ref={refPasos} className="py-24 bg-white">
@@ -239,11 +223,11 @@ export default function Landing() {
               {
                 paso: '01',
                 titulo: 'El interesado escribe al WhatsApp',
-                descripcion: 'Cualquier persona que vio un anuncio o pasó por un proyecto escribe al número de Ceinys, a cualquier hora.',
+                descripcion: 'Cualquier persona que vio un anuncio o pasó por un proyecto escribe al número de la empresa, a cualquier hora.',
               },
               {
                 paso: '02',
-                titulo: 'Valeria responde al instante',
+                titulo: 'El agente responde al instante',
                 descripcion: 'Entiende si busca vivienda o inversión, le cuenta de los proyectos que encajan y lo guía hacia una visita.',
               },
               {
@@ -270,11 +254,11 @@ export default function Landing() {
       <section className="py-24 bg-black">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">
-            CONSTRUIMOS.<br />
-            <span className="text-ceinys-orange">VOS DECIDÍS DÓNDE.</span>
+            CADA CONSULTA,<br />
+            <span className="text-ceinys-orange">ATENDIDA.</span>
           </h2>
           <p className="text-gray-500 text-lg mb-10">
-            Carga los datos de cada proyecto y Valeria empieza a captar visitas por WhatsApp.
+            Carga los datos de cada proyecto y el agente empieza a captar visitas por WhatsApp.
           </p>
           <button
             onClick={() => navigate('/dashboard')}
@@ -289,8 +273,8 @@ export default function Landing() {
       <footer className="bg-gray-950 text-gray-500 py-10 border-t border-gray-900">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <LogoCeinys />
-            <span className="text-sm">Constructora e Inmobiliaria</span>
+            <LogoMarca />
+            <span className="text-sm">{MARCA.descriptor}</span>
           </div>
           <p className="text-sm">Agente IA de atención por WhatsApp</p>
           <button onClick={() => navigate('/dashboard')} className="text-ceinys-orange hover:text-ceinys-orange-light text-sm transition-colors font-medium">

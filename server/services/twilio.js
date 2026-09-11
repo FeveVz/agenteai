@@ -42,16 +42,22 @@ function urlsCandidatas(req) {
 /**
  * Valida la cabecera x-twilio-signature.
  *
- * Devuelve { valida, motivo }. Si no hay TWILIO_AUTH_TOKEN configurado
- * devuelve valida=true con motivo 'sin_token': preferimos que el agente
- * siga respondiendo a que se caiga por una variable faltante, pero queda
- * avisado en los logs. En cuanto el token esté configurado, se exige.
+ * Devuelve { valida, motivo }.
+ *
+ * Sin TWILIO_AUTH_TOKEN el webhook queda CERRADO, no abierto. Antes era al
+ * revés, para que una variable faltante no dejara al agente mudo. Pero un
+ * webhook abierto es una URL pública donde cualquiera puede hacerse pasar por
+ * un cliente: inventar conversaciones, agendar visitas falsas en la agenda de
+ * la asesora y gastar saldo de OpenAI, todo sin dejar ninguna señal.
+ *
+ * Es el mismo criterio que en el panel: un agente mudo se nota en el día; un
+ * endpoint que acepta mensajes falsificados no se nota nunca.
  */
 function validarFirmaTwilio(req) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
 
   if (!authToken) {
-    return { valida: true, motivo: 'sin_token' };
+    return { valida: false, motivo: 'sin_token' };
   }
 
   const candidatas = urlsCandidatas(req);
@@ -166,8 +172,8 @@ async function enviarMensajeWhatsApp(numeroDestino, mensaje, imagenes = []) {
  */
 function generarRespuestaError(telefonoEmpresa) {
   const mensaje = telefonoEmpresa
-    ? `Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos o escribí al ${telefonoEmpresa}. 🙏`
-    : 'Disculpá, estoy teniendo problemas técnicos. Intentá de nuevo en unos minutos y un asesor te va a atender. 🙏';
+    ? `Disculpa, estoy teniendo problemas técnicos. Intenta de nuevo en unos minutos o escribe al ${telefonoEmpresa}. 🙏`
+    : 'Disculpa, estoy teniendo problemas técnicos. Intenta de nuevo en unos minutos y un asesor te va a atender. 🙏';
   return generarRespuestaTwiML(mensaje);
 }
 

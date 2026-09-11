@@ -7,7 +7,7 @@ const router = express.Router();
 const CAMPOS_EDITABLES = [
   'nombre', 'ubicacion', 'tipo', 'descripcion', 'precio_desde',
   'area_desde', 'caracteristicas', 'financiamiento', 'activo', 'orden',
-  'estado_comercial', 'entrega_titulo', 'imagenes', 'mapa_url',
+  'estado_comercial', 'entrega_titulo', 'imagenes', 'mapa_url', 'desarrolladora',
 ];
 
 // GET /api/proyectos — Todos los proyectos (incluye inactivos, para el panel)

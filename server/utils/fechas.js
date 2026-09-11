@@ -29,23 +29,118 @@ function formatearHora(fechaISO) {
   return `${hora}:${minutos}`;
 }
 
-// Horario de atención para visitas: de lunes a domingo, 09:00 a 17:00.
-// Un solo lugar para cambiarlo — lo usan el agente, el link de agenda y el panel.
-const HORA_APERTURA = 9;
-const HORA_CIERRE = 17;
-const MINUTOS_POR_SLOT = 30;
+// ── Horario de atención ───────────────────────────────────────────────────────
+//
+// Se carga desde el panel (configuracion_agencia), no está en el código: cada
+// clienta atiende distinto, y una que no trabaja domingos no puede tener un
+// calendario que se los ofrezca.
+//
+// Estos valores son solo el punto de partida de una base recién creada.
+const HORARIO_POR_DEFECTO = {
+  apertura: 9,
+  cierre: 17,
+  minutos_por_slot: 30,
+  dias: [0, 1, 2, 3, 4, 5, 6], // convención de Date.getDay(): 0 = domingo
+};
+
+// Compatibilidad hacia atrás: había código importando estas constantes.
+const HORA_APERTURA = HORARIO_POR_DEFECTO.apertura;
+const HORA_CIERRE = HORARIO_POR_DEFECTO.cierre;
+
+/** Un entero dentro de un rango, o el valor por defecto si viene basura. */
+function enteroEnRango(valor, minimo, maximo, porDefecto) {
+  const n = Number(valor);
+  return Number.isInteger(n) && n >= minimo && n <= maximo ? n : porDefecto;
+}
 
 /**
- * Genera todos los horarios de visita de un día (09:00 a 17:00, cada 30 min).
- * El último turno es a las 17:00 inclusive.
+ * Normaliza la fila de configuración a un horario usable.
+ *
+ * Tolera datos incompletos o mal cargados a propósito: esto lo edita una
+ * persona desde el panel, y un cierre antes de la apertura no puede dejar el
+ * calendario vacío sin explicación.
  */
-function generarHorariosDelDia() {
-  const horarios = [];
-  for (let hora = HORA_APERTURA; hora <= HORA_CIERRE; hora++) {
-    horarios.push(`${String(hora).padStart(2, '0')}:00`);
-    if (hora < HORA_CIERRE) horarios.push(`${String(hora).padStart(2, '0')}:${MINUTOS_POR_SLOT}`);
+function resolverHorario(config) {
+  const c = config || {};
+
+  const apertura = enteroEnRango(c.hora_apertura, 0, 23, HORARIO_POR_DEFECTO.apertura);
+  let cierre = enteroEnRango(c.hora_cierre, 0, 23, HORARIO_POR_DEFECTO.cierre);
+  if (cierre < apertura) cierre = apertura;
+
+  const paso = enteroEnRango(c.minutos_por_slot, 5, 60, HORARIO_POR_DEFECTO.minutos_por_slot);
+
+  // "1,2,3,4,5,6" → [1,2,3,4,5,6]. Si queda vacío se atienden todos los días:
+  // es preferible ofrecer de más y que la asesora reprograme, a que el
+  // calendario no muestre ni un día y el cliente se vaya.
+  const dias = String(c.dias_atencion == null ? '' : c.dias_atencion)
+    .split(/[,\s]+/)
+    .filter(d => d !== '')      // sin esto, '' se convierte en 0 y queda "solo domingo"
+    .map(d => Number(d))
+    .filter(d => Number.isInteger(d) && d >= 0 && d <= 6);
+
+  return {
+    apertura,
+    cierre,
+    minutos_por_slot: paso,
+    dias: dias.length > 0 ? [...new Set(dias)].sort() : HORARIO_POR_DEFECTO.dias,
+  };
+}
+
+/** ¿Se atiende ese día de la semana? `fecha` es 'YYYY-MM-DD'. */
+function esDiaDeAtencion(fecha, horario) {
+  const h = horario || HORARIO_POR_DEFECTO;
+  const [a, m, d] = String(fecha).split('-').map(Number);
+  if (!a || !m || !d) return false;
+  return h.dias.includes(new Date(a, m - 1, d).getDay());
+}
+
+/**
+ * Texto legible del horario, DERIVADO de los mismos datos que usa el
+ * calendario. No es un campo aparte a propósito: un texto suelto que dijera
+ * "lunes a sábado" mientras el calendario ofrece domingos es justo la clase de
+ * contradicción que el cliente descubre cuando ya reservó.
+ */
+function describirDias(horario) {
+  const h = horario || HORARIO_POR_DEFECTO;
+  const nombres = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const dias = [...h.dias].sort();
+
+  if (dias.length === 7) return 'Todos los días';
+
+  // Semana corrida (lunes..sábado, martes..viernes): se dice como rango.
+  const enOrdenSemanal = dias.filter(d => d !== 0).concat(dias.includes(0) ? [0] : []);
+  const corridos = enOrdenSemanal.every((d, i) =>
+    i === 0 || d === (enOrdenSemanal[i - 1] % 7) + 1 || (enOrdenSemanal[i - 1] === 6 && d === 0));
+
+  if (corridos && enOrdenSemanal.length > 2) {
+    const primero = nombres[enOrdenSemanal[0]];
+    const ultimo = nombres[enOrdenSemanal[enOrdenSemanal.length - 1]];
+    return `De ${primero} a ${ultimo}`;
   }
-  return horarios;
+
+  const lista = enOrdenSemanal.map(d => nombres[d]);
+  if (lista.length === 1) return `Solo ${lista[0]}`;
+  return lista.slice(0, -1).join(', ') + ' y ' + lista[lista.length - 1];
+}
+
+/** "De lunes a domingo, de 09:00 a 17:00" */
+function describirHorario(horario) {
+  const h = horario || HORARIO_POR_DEFECTO;
+  const hh = n => `${String(n).padStart(2, '0')}:00`;
+  return `${describirDias(h)}, de ${hh(h.apertura)} a ${hh(h.cierre)}`;
+}
+
+/**
+ * Genera todos los turnos de un día según el horario configurado.
+ * El último turno es a la hora de cierre, inclusive.
+ */
+function generarHorariosDelDia(horario) {
+  const h = horario || HORARIO_POR_DEFECTO;
+  const turnos = [];
+  for (let minutos = h.apertura * 60; minutos <= h.cierre * 60; minutos += h.minutos_por_slot) {
+    turnos.push(`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`);
+  }
+  return turnos;
 }
 
 /**
@@ -58,8 +153,8 @@ function extraerHorariosOcupados(visitas) {
 /**
  * Devuelve los horarios libres para una fecha dado un array de visitas
  */
-function calcularHorariosLibres(visitas) {
-  const todos = generarHorariosDelDia();
+function calcularHorariosLibres(visitas, horario) {
+  const todos = generarHorariosDelDia(horario);
   const ocupados = extraerHorariosOcupados(visitas);
   return todos.filter(h => !ocupados.includes(h));
 }
@@ -82,6 +177,11 @@ function formatearTimestamp(timestamp) {
 module.exports = {
   HORA_APERTURA,
   HORA_CIERRE,
+  HORARIO_POR_DEFECTO,
+  resolverHorario,
+  esDiaDeAtencion,
+  describirDias,
+  describirHorario,
   formatearFechaCompleta,
   formatearHora,
   generarHorariosDelDia,

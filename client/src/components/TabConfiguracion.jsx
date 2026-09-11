@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { obtenerConfiguracion, actualizarConfiguracion } from '../lib/api';
+import { MARCA } from '../config/marca';
 
 function InputField({ label, name, value, onChange, placeholder, type = 'text' }) {
   return (
@@ -27,6 +28,97 @@ function TextareaField({ label, name, value, onChange, placeholder, rows = 3 }) 
   );
 }
 
+const DIAS = [
+  { n: 1, corto: 'Lun' }, { n: 2, corto: 'Mar' }, { n: 3, corto: 'Mié' },
+  { n: 4, corto: 'Jue' }, { n: 5, corto: 'Vie' }, { n: 6, corto: 'Sáb' },
+  { n: 0, corto: 'Dom' },
+];
+
+/**
+ * Horario de atención.
+ *
+ * Es lo que usan el calendario público Y el agente, así que no hay un texto
+ * suelto que pueda contradecirlo: la frase que ve el cliente se deriva de
+ * estos mismos valores.
+ */
+function HorarioAtencion({ formulario, setFormulario, manejarCambio }) {
+  const seleccionados = String(formulario.dias_atencion || '')
+    .split(',').map(d => Number(d)).filter(d => Number.isInteger(d));
+
+  const alternarDia = (n) => {
+    const nuevos = seleccionados.includes(n)
+      ? seleccionados.filter(d => d !== n)
+      : [...seleccionados, n];
+    setFormulario(prev => ({ ...prev, dias_atencion: nuevos.sort().join(',') }));
+  };
+
+  const hh = (n) => `${String(n).padStart(2, '0')}:00`;
+  const turnos = Math.max(0, Math.floor(((formulario.hora_cierre - formulario.hora_apertura) * 60) / (formulario.minutos_por_slot || 30)) + 1);
+
+  return (
+    <div className="space-y-3 border border-gray-200 rounded-xl p-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Horario de visitas</label>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Define qué días y horas ofrece el calendario que el agente le manda al cliente.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {DIAS.map(d => (
+          <button
+            key={d.n}
+            type="button"
+            onClick={() => alternarDia(d.n)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+              seleccionados.includes(d.n)
+                ? 'bg-ceinys-orange text-white border-ceinys-orange'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+            }`}
+          >
+            {d.corto}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-gray-600">Abre</label>
+          <select name="hora_apertura" value={formulario.hora_apertura} onChange={manejarCambio}
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange">
+            {Array.from({ length: 24 }, (_, i) => <option key={i} value={i}>{hh(i)}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-gray-600">Cierra</label>
+          <select name="hora_cierre" value={formulario.hora_cierre} onChange={manejarCambio}
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange">
+            {Array.from({ length: 24 }, (_, i) => <option key={i} value={i}>{hh(i)}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-gray-600">Cada</label>
+          <select name="minutos_por_slot" value={formulario.minutos_por_slot} onChange={manejarCambio}
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange">
+            {[15, 30, 45, 60].map(m => <option key={m} value={m}>{m} min</option>)}
+          </select>
+        </div>
+      </div>
+
+      {seleccionados.length === 0 ? (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Sin días marcados se atienden todos. Marca al menos uno para restringirlo.
+        </p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          El cliente verá <strong>{turnos}</strong> {turnos === 1 ? 'horario' : 'horarios'} por día,
+          de {hh(formulario.hora_apertura)} a {hh(formulario.hora_cierre)}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function TabConfiguracion() {
   const queryClient = useQueryClient();
   const [copiado, setCopiado] = useState(false);
@@ -35,6 +127,8 @@ export default function TabConfiguracion() {
     email: '', horarios: '', servicios: '', sobre_agencia: '',
     casos_exito: '', redes_sociales: '', preguntas_frecuentes: '', reglas_agente: '',
     email_alertas: '',
+    nombre_agente: '', tipo_negocio: '',
+    hora_apertura: 9, hora_cierre: 17, minutos_por_slot: 30, dias_atencion: '0,1,2,3,4,5,6',
   });
 
   const { data, isLoading } = useQuery({ queryKey: ['configuracion'], queryFn: obtenerConfiguracion });
@@ -56,6 +150,12 @@ export default function TabConfiguracion() {
         preguntas_frecuentes: c.preguntas_frecuentes || '',
         reglas_agente: c.reglas_agente || '',
         email_alertas: c.email_alertas || '',
+        nombre_agente: c.nombre_agente || '',
+        tipo_negocio: c.tipo_negocio || '',
+        hora_apertura: c.hora_apertura ?? 9,
+        hora_cierre: c.hora_cierre ?? 17,
+        minutos_por_slot: c.minutos_por_slot ?? 30,
+        dias_atencion: c.dias_atencion ?? '0,1,2,3,4,5,6',
       });
     }
   }, [data]);
@@ -69,9 +169,13 @@ export default function TabConfiguracion() {
     onError: (e) => toast.error(`Error al guardar: ${e.message}`),
   });
 
+  // Los <select> del horario devuelven strings; se guardan como números para
+  // que la vista previa no dependa de la coerción implícita de JavaScript.
+  const NUMERICOS = ['hora_apertura', 'hora_cierre', 'minutos_por_slot'];
+
   const manejarCambio = (e) => {
     const { name, value } = e.target;
-    setFormulario(prev => ({ ...prev, [name]: value }));
+    setFormulario(prev => ({ ...prev, [name]: NUMERICOS.includes(name) ? Number(value) : value }));
   };
 
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -157,7 +261,7 @@ export default function TabConfiguracion() {
             name="reglas_agente"
             value={formulario.reglas_agente}
             onChange={manejarCambio}
-            placeholder={`Ejemplos de reglas que puedes definir:\n- Solo hablar de Ceinys y sus proyectos inmobiliarios. Si preguntan otro tema, redirigir con amabilidad.\n- NUNCA inventar precios, metrajes ni condiciones de financiamiento. Si el dato no está cargado, derivar a un asesor.\n- El objetivo de cada conversación es agendar una visita al proyecto.\n- Nunca prometer separación, descuento ni reserva de lote.\n- No hablar negativamente de otras inmobiliarias.`}
+            placeholder={`Ejemplos de reglas que puedes definir:\n- Solo hablar de nuestros proyectos inmobiliarios. Si preguntan otro tema, redirigir con amabilidad.\n- NUNCA inventar precios, metrajes ni condiciones de financiamiento. Si el dato no está cargado, derivar a un asesor.\n- El objetivo de cada conversación es agendar una visita al proyecto.\n- Nunca prometer separación, descuento ni reserva de lote.\n- No hablar negativamente de otras inmobiliarias.`}
             rows={7}
           />
           <p className="text-xs text-gray-400 mt-3">
@@ -188,7 +292,7 @@ export default function TabConfiguracion() {
             name="email_alertas"
             value={formulario.email_alertas}
             onChange={manejarCambio}
-            placeholder="ventas@ceinys.com, asesor1@ceinys.com"
+            placeholder="ventas@tuempresa.pe, asesor@tuempresa.pe"
           />
           <p className="text-xs text-gray-400 mt-3">
             Puedes poner varios para que le llegue a todo el equipo comercial. Si lo dejas vacío, no se envía
@@ -210,21 +314,27 @@ export default function TabConfiguracion() {
       {/* Formulario de configuración */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-black">
-          <h2 className="text-base font-bold text-white">Datos de Ceinys</h2>
+          <h2 className="text-base font-bold text-white">{MARCA.nombre ? `Datos de ${MARCA.nombre}` : "Datos de la empresa"}</h2>
           <p className="text-xs text-gray-500 mt-0.5">Valeria usa esta información para responder a los interesados. Lo que dejes vacío, no lo inventa: deriva al asesor.</p>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); mutacion.mutate(formulario); }} className="p-6 space-y-5">
           <div className="grid sm:grid-cols-2 gap-5">
-            <InputField label="Nombre de la empresa" name="nombre_agencia" value={formulario.nombre_agencia} onChange={manejarCambio} placeholder="Ceinys" />
+            <InputField label="Nombre de la empresa" name="nombre_agencia" value={formulario.nombre_agencia} onChange={manejarCambio} placeholder="Nombre comercial" />
             <InputField label="Slogan / descriptor" name="slogan" value={formulario.slogan} onChange={manejarCambio} placeholder="Constructora e Inmobiliaria" />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <InputField label="Nombre del agente" name="nombre_agente" value={formulario.nombre_agente} onChange={manejarCambio} placeholder="Valeria" />
+            <InputField label="Rubro (como se presenta)" name="tipo_negocio" value={formulario.tipo_negocio} onChange={manejarCambio} placeholder="asesora inmobiliaria en Ica" />
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
             <InputField label="Teléfono / WhatsApp" name="telefono" value={formulario.telefono} onChange={manejarCambio} placeholder="+51 ..." type="tel" />
-            <InputField label="Email" name="email" value={formulario.email} onChange={manejarCambio} placeholder="ventas@ceinys.com" type="email" />
+            <InputField label="Email" name="email" value={formulario.email} onChange={manejarCambio} placeholder="ventas@tuempresa.pe" type="email" />
           </div>
           <InputField label="Dirección de la oficina" name="direccion" value={formulario.direccion} onChange={manejarCambio} placeholder="Av. ..., distrito, ciudad" />
-          <TextareaField label="Horarios de atención" name="horarios" value={formulario.horarios} onChange={manejarCambio} placeholder="Lunes a Viernes: 9:00 - 18:00 hs&#10;Sábados: 9:00 - 13:00 hs" rows={2} />
+          <HorarioAtencion formulario={formulario} setFormulario={setFormulario} manejarCambio={manejarCambio} />
+
+          <TextareaField label="Nota sobre horarios (texto libre para el FAQ)" name="horarios" value={formulario.horarios} onChange={manejarCambio} placeholder="Ofrecemos movilidad desde puntos céntricos." rows={2} />
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Qué ofrecemos (separado por coma)</label>
             <textarea
@@ -242,7 +352,7 @@ export default function TabConfiguracion() {
             placeholder={`Datos concretos que Valeria puede mencionar:\n• X familias ya viviendo en Altos de Sacta\n• Todos los lotes con partida registral independiente en SUNARP\n• X años desarrollando proyectos en la región`}
             rows={5}
           />
-          <InputField label="Redes sociales" name="redes_sociales" value={formulario.redes_sociales} onChange={manejarCambio} placeholder="Instagram: @ceinys | Facebook: facebook.com/ceinys | TikTok: @ceinys" />
+          <InputField label="Redes sociales" name="redes_sociales" value={formulario.redes_sociales} onChange={manejarCambio} placeholder="Instagram: @tuempresa | Facebook: facebook.com/tuempresa" />
           <TextareaField
             label="Preguntas frecuentes (FAQ)"
             name="preguntas_frecuentes"

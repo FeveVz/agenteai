@@ -8,7 +8,8 @@
     "build": "cd client && npm run build",
     "vercel-build": "cd client && npm install && npm run build",
     "start": "node server/index.js",
-    "setup": "npm install && cd client && npm install"
+    "setup": "npm install && cd client && npm install",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.0",

@@ -4,10 +4,13 @@ const { obtenerSupabase } = require('../db');
 const {
   calcularHorariosLibres,
   formatearFechaCompleta,
-  HORA_APERTURA,
-  HORA_CIERRE,
+  resolverHorario,
+  esDiaDeAtencion,
+  describirDias,
+  generarHorariosDelDia,
 } = require('../utils/fechas');
 const { enviarAlertaVisita } = require('../services/email');
+const { buscarPorNombre } = require('../utils/proyectos');
 
 const router = express.Router();
 
@@ -75,7 +78,7 @@ async function requiereCodigoAgenda(req, res, next) {
   }
 
   if (!codigo || !/^[a-z0-9]{4,16}$/.test(String(codigo))) {
-    return res.status(401).json({ error: 'Este enlace no es válido. Pídele uno nuevo a Valeria por WhatsApp.' });
+    return res.status(401).json({ error: 'Este enlace no es válido. Pídenos uno nuevo por WhatsApp.' });
   }
 
   try {
@@ -88,7 +91,7 @@ async function requiereCodigoAgenda(req, res, next) {
       .single();
 
     if (!enlace) {
-      return res.status(401).json({ error: 'Este enlace no es válido. Pídele uno nuevo a Valeria por WhatsApp.' });
+      return res.status(401).json({ error: 'Este enlace no es válido. Pídenos uno nuevo por WhatsApp.' });
     }
     if (new Date(enlace.expira_en) < new Date()) {
       return res.status(401).json({ error: 'Este enlace ya venció. Escríbenos por WhatsApp y te mandamos uno nuevo.' });
@@ -98,7 +101,7 @@ async function requiereCodigoAgenda(req, res, next) {
     req.proyectoSugerido = enlace.proyecto;
     next();
   } catch {
-    return res.status(401).json({ error: 'Este enlace no es válido. Pídele uno nuevo a Valeria por WhatsApp.' });
+    return res.status(401).json({ error: 'Este enlace no es válido. Pídenos uno nuevo por WhatsApp.' });
   }
 }
 
@@ -133,18 +136,29 @@ router.get('/:codigo/contexto', requiereCodigoAgenda, async (req, res) => {
 
     const [{ data: proyectos }, { data: config }] = await Promise.all([
       supabase.from('proyectos').select('nombre').eq('activo', true).order('orden', { ascending: true }),
-      supabase.from('configuracion_agencia').select('nombre_agencia').limit(1).single(),
+      supabase.from('configuracion_agencia')
+        .select('nombre_agencia, hora_apertura, hora_cierre, minutos_por_slot, dias_atencion')
+        .limit(1).single(),
     ]);
 
+    const horario = resolverHorario(config);
     const tel = req.telefonoCliente;
 
     res.json({
       ok: true,
       telefono_visible: `••••${tel.slice(-4)}`,
-      empresa: config?.nombre_agencia || 'Ceinys',
+      empresa: (config?.nombre_agencia || '').trim() || 'Agenda tu visita',
       proyectos: (proyectos || []).map(p => p.nombre),
       proyecto_sugerido: req.proyectoSugerido || null,
-      horario: { apertura: HORA_APERTURA, cierre: HORA_CIERRE, dias: 'Lunes a domingo' },
+      // El texto de los dias se DERIVA de los mismos datos que usan el
+      // calendario y la validacion. Antes era el literal 'Lunes a domingo',
+      // que quedaba mintiendo apenas la clienta cambiara su horario.
+      horario: {
+        apertura: horario.apertura,
+        cierre: horario.cierre,
+        dias: describirDias(horario),
+        dias_semana: horario.dias,
+      },
     });
   } catch (error) {
     console.error('[Agenda] Error en contexto:', error);
@@ -163,16 +177,29 @@ router.get('/:codigo/disponibilidad', requiereCodigoAgenda, async (req, res) => 
 
   try {
     const supabase = obtenerSupabase();
-    const { data: visitas, error } = await supabase
-      .from('visitas')
-      .select('fecha_visita')
-      .gte('fecha_visita', `${fecha}T00:00:00`)
-      .lte('fecha_visita', `${fecha}T23:59:59`)
-      .neq('estado', 'cancelada');
+
+    const [{ data: config }, { data: visitas, error }] = await Promise.all([
+      supabase.from('configuracion_agencia')
+        .select('hora_apertura, hora_cierre, minutos_por_slot, dias_atencion')
+        .limit(1).single(),
+      supabase.from('visitas')
+        .select('fecha_visita')
+        .gte('fecha_visita', `${fecha}T00:00:00`)
+        .lte('fecha_visita', `${fecha}T23:59:59`)
+        .neq('estado', 'cancelada'),
+    ]);
 
     if (error) throw error;
 
-    let libres = calcularHorariosLibres(visitas || []);
+    const horario = resolverHorario(config);
+
+    // Dia sin atencion: sin turnos. El calendario ya lo deshabilita, pero esta
+    // ruta es publica y hay que validarlo tambien aca.
+    if (!esDiaDeAtencion(fecha, horario)) {
+      return res.json({ ok: true, fecha, libres: [] });
+    }
+
+    let libres = calcularHorariosLibres(visitas || [], horario);
 
     // Si la fecha es hoy, no ofrecer horas que ya pasaron (hora de Perú).
     const ahoraPeru = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
@@ -215,17 +242,57 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
   try {
     const supabase = obtenerSupabase();
 
-    // El proyecto tiene que existir de verdad
-    const { data: valido } = await supabase
-      .from('proyectos').select('nombre, mapa_url').ilike('nombre', proyecto).eq('activo', true).limit(1);
+    // El proyecto tiene que existir de verdad.
+    //
+    // Ojo con cómo se valida: `proyecto` viene del body de una ruta pública.
+    // Con `.ilike('nombre', proyecto)` los comodines de LIKE llegaban intactos,
+    // así que un {"proyecto": "%"} matcheaba el catálogo entero y la reserva
+    // caía sobre el primero de la lista. El match se hace en Node.
+    // El horario tambien se valida aca: el body de esta ruta lo arma el
+    // navegador, y nada impide postear una hora que el calendario no ofrecio.
+    const { data: configHorario } = await supabase
+      .from('configuracion_agencia')
+      .select('hora_apertura, hora_cierre, minutos_por_slot, dias_atencion')
+      .limit(1).single();
 
-    if (!valido || valido.length === 0) {
+    const horario = resolverHorario(configHorario);
+
+    if (!esDiaDeAtencion(fecha, horario) || !generarHorariosDelDia(horario).includes(hora)) {
+      return res.status(400).json({ error: 'Ese dia u horario no esta disponible. Elige otro, por favor.' });
+    }
+
+    const { data: activos, error: errorProyectos } = await supabase
+      .from('proyectos').select('nombre, mapa_url').eq('activo', true).order('orden', { ascending: true });
+
+    if (errorProyectos) throw errorProyectos;
+
+    const { coincidencias, ambiguo } = buscarPorNombre(activos, proyecto);
+
+    // Ambiguo no es culpa del cliente: el nombre se lo ofreció nuestro propio
+    // desplegable. Pasa si el catálogo tiene dos proyectos activos que
+    // normalizan igual ("Los Álamos" y "Los Alamos", cargados por tipeo).
+    // Sin este log, desde el panel solo se ve que dejaron de entrar visitas.
+    if (ambiguo) {
+      console.error(`[Agenda] Nombre ambiguo "${proyecto}": ${coincidencias.map(p => p.nombre).join(', ')}. Renombra o desactiva uno.`);
+      return res.status(500).json({ error: 'No pudimos confirmar la visita. Escríbenos por WhatsApp y lo resolvemos.' });
+    }
+
+    if (coincidencias.length === 0) {
+      console.warn(`[Agenda] Proyecto inexistente o desactivado: "${proyecto}"`);
       return res.status(400).json({ error: 'Ese proyecto no está disponible.' });
     }
 
-    // Que el horario siga libre: entre que cargó la página y confirmó pudo ocuparse
-    const { data: ocupado } = await supabase
+    const elegido = coincidencias[0];
+
+    // Que el horario siga libre: entre que cargó la página y confirmó pudo ocuparse.
+    //
+    // El error se propaga a propósito: si esta consulta falla y lo ignoramos,
+    // `ocupado` queda null, el chequeo pasa de largo y se agenda una visita
+    // encima de otra. Mejor devolver error que duplicar el horario del asesor.
+    const { data: ocupado, error: errorOcupado } = await supabase
       .from('visitas').select('id').eq('fecha_visita', fechaVisita).neq('estado', 'cancelada').limit(1);
+
+    if (errorOcupado) throw errorOcupado;
 
     if (ocupado && ocupado.length > 0) {
       return res.status(409).json({ error: 'Ese horario se acaba de ocupar. Elige otro, por favor.' });
@@ -237,7 +304,7 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
         numero_telefono: telefono,
         nombre_cliente: String(nombre).trim(),
         fecha_visita: fechaVisita,
-        proyecto_interes: valido[0].nombre,
+        proyecto_interes: elegido.nombre,
         estado: 'confirmada',
         notas: notas ? String(notas).trim() : null,
       })
@@ -251,19 +318,19 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
     // Acá sí esperamos: la respuesta se devuelve enseguida y en serverless
     // una promesa suelta puede quedar cortada antes de completarse.
     const { data: config } = await supabase
-      .from('configuracion_agencia').select('email_alertas').limit(1).single();
+      .from('configuracion_agencia').select('email_alertas, nombre_agencia').limit(1).single();
     await enviarAlertaVisita({ ...visita, origen: 'link' }, config);
 
     // Solo http/https: este enlace va directo a un href en la confirmación
-    const mapa = valido[0].mapa_url;
+    const mapa = elegido.mapa_url;
     const mapaSeguro = typeof mapa === 'string' && /^https?:\/\/\S+$/i.test(mapa.trim()) ? mapa.trim() : null;
 
     res.json({
       ok: true,
-      mensaje: `¡Listo! Tu visita a ${valido[0].nombre} quedó confirmada para el ${formatearFechaCompleta(fechaVisita)}.`,
+      mensaje: `¡Listo! Tu visita a ${elegido.nombre} quedó confirmada para el ${formatearFechaCompleta(fechaVisita)}.`,
       visita: {
         id: visita.id,
-        proyecto: valido[0].nombre,
+        proyecto: elegido.nombre,
         fecha: formatearFechaCompleta(fechaVisita),
         mapa_url: mapaSeguro,
       },
