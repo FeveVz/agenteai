@@ -27,6 +27,22 @@ están andando se actualizan con los archivos de `migraciones/`, en orden.
 
 ## Levantar la base de una clienta nueva
 
+La forma corta, una vez creado el proyecto en Supabase:
+
+```bash
+export SUPABASE_ACCESS_TOKEN=...          # supabase.com/dashboard/account/tokens
+node scripts/alta-cliente.mjs <ref-del-proyecto> pamela-barrios
+```
+
+Corre el esquema y los datos, y verifica. Se niega a escribir si la base ya
+tiene datos de otra clienta, y tambien si no puede averiguar que hay: correr
+el SQL de una clienta sobre la base de otra no tiene vuelta atras.
+
+El `<ref-del-proyecto>` es lo que aparece en la URL del panel de Supabase,
+en `/dashboard/project/ESTO`.
+
+### A mano, si prefieres
+
 1. Crear el proyecto en Supabase.
 2. **SQL Editor → pegar `sql/esquema.sql` → Run.** Eso es todo el SQL que hace falta.
    Al final imprime las seis tablas que tienen que existir; si falta alguna, no seguir.
