@@ -14,7 +14,7 @@ export default function TabVisitas() {
             onClick={() => setVista('calendario')}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
               vista === 'calendario'
-                ? 'bg-ceinys-orange text-white shadow-sm'
+                ? 'bg-marca-orange text-white shadow-sm'
                 : 'text-gray-500 hover:text-gray-300'
             }`}
           >
@@ -24,7 +24,7 @@ export default function TabVisitas() {
             onClick={() => setVista('lista')}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
               vista === 'lista'
-                ? 'bg-ceinys-orange text-white shadow-sm'
+                ? 'bg-marca-orange text-white shadow-sm'
                 : 'text-gray-500 hover:text-gray-300'
             }`}
           >

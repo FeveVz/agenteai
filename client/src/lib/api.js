@@ -1,5 +1,5 @@
 const BASE_URL = '/api';
-const CLAVE_TOKEN = 'ceinys_panel_token';
+const CLAVE_TOKEN = 'agente_panel_token';
 
 // ── Sesión ────────────────────────────────────────────────────────────────────
 
@@ -21,7 +21,7 @@ export function cerrarSesion() {
 /** Se dispara cuando el backend responde 401: la UI vuelve al login. */
 function notificarSesionExpirada() {
   guardarToken(null);
-  window.dispatchEvent(new CustomEvent('ceinys:sesion-expirada'));
+  window.dispatchEvent(new CustomEvent('agente:sesion-expirada'));
 }
 
 // ── Fetch con token ───────────────────────────────────────────────────────────

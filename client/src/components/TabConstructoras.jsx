@@ -5,7 +5,7 @@ import { obtenerDesarrolladoras, crearDesarrolladora, actualizarDesarrolladora, 
 import SubirImagen from './SubirImagen';
 
 function Campo({ label, name, value, onChange, placeholder, textarea = false, rows = 2 }) {
-  const clases = 'w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ceinys-orange focus:border-transparent transition-all';
+  const clases = 'w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marca-orange focus:border-transparent transition-all';
   return (
     <div className="space-y-1">
       <label className="block text-xs font-medium text-gray-600">{label}</label>
@@ -145,13 +145,13 @@ function FormularioNueva() {
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre comercial"
-          className="w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange transition-all"
+          className="w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
         />
       </div>
       <button
         type="submit"
         disabled={mutacion.isPending || !nombre.trim()}
-        className="bg-ceinys-orange hover:bg-ceinys-orange-light disabled:bg-gray-300 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm whitespace-nowrap"
+        className="bg-marca-orange hover:bg-marca-orange-light disabled:bg-gray-300 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm whitespace-nowrap"
       >
         {mutacion.isPending ? 'Creando...' : 'Agregar'}
       </button>

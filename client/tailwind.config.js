@@ -9,8 +9,10 @@ export default {
         sans: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // Paleta de marca Ceinys, tomada del logo oficial
-        ceinys: {
+        // Paleta del producto. Se llamaba "ceinys" por la clienta de cuyo
+// logo salio; con varias clientas sobre el mismo codigo, el nombre
+// del token tiene que ser neutro. Los colores no cambiaron.
+        marca: {
           orange: '#F5851F',
           'orange-light': '#FF9F45',
           'orange-dark': '#D96F10',

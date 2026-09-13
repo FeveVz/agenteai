@@ -10,7 +10,7 @@ function InputField({ label, name, value, onChange, placeholder, type = 'text' }
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       <input
         type={type} name={name} value={value || ''} onChange={onChange} placeholder={placeholder}
-        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ceinys-orange focus:border-transparent transition-all"
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marca-orange focus:border-transparent transition-all"
       />
     </div>
   );
@@ -22,7 +22,7 @@ function TextareaField({ label, name, value, onChange, placeholder, rows = 3 }) 
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       <textarea
         name={name} value={value || ''} onChange={onChange} placeholder={placeholder} rows={rows}
-        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ceinys-orange focus:border-transparent transition-all resize-none"
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marca-orange focus:border-transparent transition-all resize-none"
       />
     </div>
   );
@@ -72,7 +72,7 @@ function HorarioAtencion({ formulario, setFormulario, manejarCambio }) {
             onClick={() => alternarDia(d.n)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
               seleccionados.includes(d.n)
-                ? 'bg-ceinys-orange text-white border-ceinys-orange'
+                ? 'bg-marca-orange text-white border-marca-orange'
                 : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
             }`}
           >
@@ -85,21 +85,21 @@ function HorarioAtencion({ formulario, setFormulario, manejarCambio }) {
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-600">Abre</label>
           <select name="hora_apertura" value={formulario.hora_apertura} onChange={manejarCambio}
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange">
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange">
             {Array.from({ length: 24 }, (_, i) => <option key={i} value={i}>{hh(i)}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-600">Cierra</label>
           <select name="hora_cierre" value={formulario.hora_cierre} onChange={manejarCambio}
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange">
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange">
             {Array.from({ length: 24 }, (_, i) => <option key={i} value={i}>{hh(i)}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-600">Cada</label>
           <select name="minutos_por_slot" value={formulario.minutos_por_slot} onChange={manejarCambio}
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange">
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange">
             {[15, 30, 45, 60].map(m => <option key={m} value={m}>{m} min</option>)}
           </select>
         </div>
@@ -194,7 +194,7 @@ export default function TabConfiguracion() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-48 gap-3 text-gray-400">
-        <div className="w-6 h-6 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-marca-orange border-t-transparent rounded-full animate-spin" />
         <span className="text-sm">Cargando configuración...</span>
       </div>
     );
@@ -252,8 +252,8 @@ export default function TabConfiguracion() {
       {/* Reglas fundamentales del agente */}
       <div className="bg-white rounded-2xl border border-orange-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-orange-100 bg-black">
-          <h2 className="text-base font-bold text-white">Reglas fundamentales de Valeria</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Estas reglas tienen prioridad máxima — definen qué puede y qué no puede hacer Valeria.</p>
+          <h2 className="text-base font-bold text-white">Reglas fundamentales de {MARCA.agente}</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Estas reglas tienen prioridad máxima — definen qué puede y qué no puede hacer {MARCA.agente}.</p>
         </div>
         <div className="p-6">
           <TextareaField
@@ -265,7 +265,7 @@ export default function TabConfiguracion() {
             rows={7}
           />
           <p className="text-xs text-gray-400 mt-3">
-            Escribe una regla por línea. Puedes ser tan específico como necesites — Valeria las va a respetar en cada conversación.
+            Escribe una regla por línea. Puedes ser tan específico como necesites — {MARCA.agente} las va a respetar en cada conversación.
           </p>
           <div className="flex justify-end mt-4">
             <button
@@ -284,7 +284,7 @@ export default function TabConfiguracion() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-black">
           <h2 className="text-base font-bold text-white">Aviso por correo al agendarse una visita</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Cada vez que Valeria agende una visita, se envía un correo con los datos del cliente.</p>
+          <p className="text-xs text-gray-500 mt-0.5">Cada vez que {MARCA.agente} agende una visita, se envía un correo con los datos del cliente.</p>
         </div>
         <div className="p-6">
           <InputField
@@ -315,16 +315,16 @@ export default function TabConfiguracion() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-black">
           <h2 className="text-base font-bold text-white">{MARCA.nombre ? `Datos de ${MARCA.nombre}` : "Datos de la empresa"}</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Valeria usa esta información para responder a los interesados. Lo que dejes vacío, no lo inventa: deriva al asesor.</p>
+          <p className="text-xs text-gray-500 mt-0.5">{MARCA.agente} usa esta información para responder a los interesados. Lo que dejes vacío, no lo inventa: deriva al asesor.</p>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); mutacion.mutate(formulario); }} className="p-6 space-y-5">
           <div className="grid sm:grid-cols-2 gap-5">
             <InputField label="Nombre de la empresa" name="nombre_agencia" value={formulario.nombre_agencia} onChange={manejarCambio} placeholder="Nombre comercial" />
-            <InputField label="Slogan / descriptor" name="slogan" value={formulario.slogan} onChange={manejarCambio} placeholder="Constructora e Inmobiliaria" />
+            <InputField label="Slogan / descriptor" name="slogan" value={formulario.slogan} onChange={manejarCambio} placeholder="Ej: Asesora Inmobiliaria" />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
-            <InputField label="Nombre del agente" name="nombre_agente" value={formulario.nombre_agente} onChange={manejarCambio} placeholder="Valeria" />
+            <InputField label="Nombre del agente" name="nombre_agente" value={formulario.nombre_agente} onChange={manejarCambio} placeholder="Ej: Camila" />
             <InputField label="Rubro (como se presenta)" name="tipo_negocio" value={formulario.tipo_negocio} onChange={manejarCambio} placeholder="asesora inmobiliaria en Ica" />
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
@@ -340,7 +340,7 @@ export default function TabConfiguracion() {
             <textarea
               name="servicios" value={formulario.servicios} onChange={manejarCambio} rows={2}
               placeholder="Venta de lotes, Venta de viviendas, Financiamiento directo, Asesoría de inversión inmobiliaria..."
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange transition-all resize-none"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all resize-none"
             />
           </div>
           <TextareaField label="Sobre la empresa" name="sobre_agencia" value={formulario.sobre_agencia} onChange={manejarCambio} placeholder="Años en el mercado, respaldo legal, cuántas familias ya compraron..." rows={4} />
@@ -349,7 +349,7 @@ export default function TabConfiguracion() {
             name="casos_exito"
             value={formulario.casos_exito}
             onChange={manejarCambio}
-            placeholder={`Datos concretos que Valeria puede mencionar:\n• X familias ya viviendo en Altos de Sacta\n• Todos los lotes con partida registral independiente en SUNARP\n• X años desarrollando proyectos en la región`}
+            placeholder={`Datos concretos que el agente puede mencionar:\n• X familias ya viviendo en tus proyectos\n• Todos los lotes con partida registral independiente en SUNARP\n• X años desarrollando proyectos en la región`}
             rows={5}
           />
           <InputField label="Redes sociales" name="redes_sociales" value={formulario.redes_sociales} onChange={manejarCambio} placeholder="Instagram: @tuempresa | Facebook: facebook.com/tuempresa" />
@@ -358,7 +358,7 @@ export default function TabConfiguracion() {
             name="preguntas_frecuentes"
             value={formulario.preguntas_frecuentes}
             onChange={manejarCambio}
-            placeholder={`Preguntas y respuestas que Valeria debe saber:\nP: ¿Los lotes tienen título de propiedad?\nR: Sí, cada lote se entrega con partida registral independiente en SUNARP.\n\nP: ¿Puedo pagar en cuotas?\nR: Sí, tenemos financiamiento directo. Un asesor te arma el plan en la visita.`}
+            placeholder={`Preguntas y respuestas que el agente debe saber:\nP: ¿Los lotes tienen título de propiedad?\nR: Sí, cada lote se entrega con partida registral independiente en SUNARP.\n\nP: ¿Puedo pagar en cuotas?\nR: Sí, tenemos financiamiento directo. Un asesor te arma el plan en la visita.`}
             rows={7}
           />
 

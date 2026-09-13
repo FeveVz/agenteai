@@ -293,3 +293,47 @@ test('ningún nombre propio de otra clienta sobrevive en el código del prompt',
       `"${marca}" no puede aparecer en un literal del prompt`);
   }
 });
+
+test('ninguna marca de otra clienta sobrevive en el cliente', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const raiz = path.join(__dirname, '..', 'client', 'src');
+
+  const archivos = [];
+  (function recorrer(dir) {
+    for (const entrada of fs.readdirSync(dir)) {
+      const p = path.join(dir, entrada);
+      if (fs.statSync(p).isDirectory()) recorrer(p);
+      else if (/\.(jsx?|css)$/.test(p)) archivos.push(p);
+    }
+  })(raiz);
+
+  // Nombres propios de clientas y de sus proyectos. El panel y la landing son
+  // código compartido: lo que quede clavado acá lo ve otra clienta en su
+  // propio despliegue. Los comentarios sí pueden nombrarlos: explican el bug.
+  const PROHIBIDAS = ['Ceinys', 'ceinys', 'Valeria', 'Sacta', 'Carhuaz', 'Sauces', 'Paracas'];
+  const hallazgos = [];
+
+  for (const archivo of archivos) {
+    const lineas = fs.readFileSync(archivo, 'utf8').split('\n');
+    let enBloque = false;
+    lineas.forEach((linea, i) => {
+      const limpia = linea.trim();
+      if (enBloque) { if (limpia.includes('*/')) enBloque = false; return; }
+      // Los comentarios de JSX abren con `{/*`, no con `/*`, y suelen ocupar
+      // varias lineas: sin contemplarlos, la continuacion parece codigo.
+      if (limpia.startsWith('/*') || limpia.startsWith('{/*')) {
+        if (!limpia.includes('*/')) enBloque = true;
+        return;
+      }
+      if (limpia.startsWith('//') || limpia.startsWith('*')) return;
+      for (const marca of PROHIBIDAS) {
+        if (linea.includes(marca)) {
+          hallazgos.push(`${path.relative(raiz, archivo)}:${i + 1}  ${marca}`);
+        }
+      }
+    });
+  }
+
+  assert.deepStrictEqual(hallazgos, [], 'marcas ajenas en el cliente:\n  ' + hallazgos.join('\n  '));
+});

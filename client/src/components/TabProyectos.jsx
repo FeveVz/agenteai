@@ -5,7 +5,7 @@ import { obtenerProyectos, actualizarProyecto, crearProyecto } from '../lib/api'
 import { MARCA } from '../config/marca';
 import SubirImagen from './SubirImagen';
 
-// Campos que Valeria puede citar. Si están todos vacíos, deriva al asesor.
+// Campos que el agente puede citar. Si están todos vacíos, deriva al asesor.
 const CAMPOS_DE_DATO = ['ubicacion', 'tipo', 'descripcion', 'precio_desde', 'area_desde', 'caracteristicas', 'financiamiento', 'estado_comercial', 'entrega_titulo', 'desarrolladora'];
 
 function tieneDatos(proyecto) {
@@ -13,7 +13,7 @@ function tieneDatos(proyecto) {
 }
 
 function Campo({ label, name, value, onChange, placeholder, textarea = false, rows = 2 }) {
-  const clases = 'w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ceinys-orange focus:border-transparent transition-all';
+  const clases = 'w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marca-orange focus:border-transparent transition-all';
   return (
     <div className="space-y-1">
       <label className="block text-xs font-medium text-gray-600">{label}</label>
@@ -88,7 +88,7 @@ function TarjetaProyecto({ proyecto }) {
           )}
 
           <div className="grid sm:grid-cols-2 gap-4">
-            <Campo label="Nombre" name="nombre" value={form.nombre} onChange={cambiar} placeholder="Altos de Sacta" />
+            <Campo label="Nombre" name="nombre" value={form.nombre} onChange={cambiar} placeholder="Nombre del proyecto" />
             <Campo label="Ubicación" name="ubicacion" value={form.ubicacion} onChange={cambiar} placeholder="Distrito, provincia, referencia" />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -178,7 +178,7 @@ function TarjetaProyecto({ proyecto }) {
                 type="checkbox"
                 checked={!!form.activo}
                 onChange={(e) => setForm(prev => ({ ...prev, activo: e.target.checked }))}
-                className="w-4 h-4 rounded border-gray-300 text-ceinys-orange focus:ring-ceinys-orange"
+                className="w-4 h-4 rounded border-gray-300 text-marca-orange focus:ring-marca-orange"
               />
               El agente puede ofrecer este proyecto
             </label>
@@ -221,13 +221,13 @@ function FormularioNuevo() {
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre del proyecto"
-          className="w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange transition-all"
+          className="w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
         />
       </div>
       <button
         type="submit"
         disabled={mutacion.isPending || !nombre.trim()}
-        className="bg-ceinys-orange hover:bg-ceinys-orange-light disabled:bg-gray-300 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm whitespace-nowrap"
+        className="bg-marca-orange hover:bg-marca-orange-light disabled:bg-gray-300 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm whitespace-nowrap"
       >
         {mutacion.isPending ? 'Creando...' : 'Agregar'}
       </button>
@@ -249,7 +249,7 @@ export default function TabProyectos() {
       <div className="bg-black rounded-2xl border border-gray-800 shadow-sm p-5">
         <h2 className="text-base font-bold text-white">{MARCA.nombre ? `Proyectos de ${MARCA.nombre}` : "Proyectos"}</h2>
         <p className="text-xs text-gray-500 mt-1">
-          Valeria solo habla de los proyectos cargados aquí, y solo cita los datos que completes.
+          {MARCA.agente} solo habla de los proyectos cargados aquí, y solo cita los datos que completes.
           {sinDatos > 0 && (
             <span className="text-amber-400"> {sinDatos} proyecto{sinDatos !== 1 ? 's' : ''} sin datos todavía.</span>
           )}
@@ -258,7 +258,7 @@ export default function TabProyectos() {
 
       {isLoading && (
         <div className="flex items-center justify-center h-48 gap-3 text-gray-400">
-          <div className="w-6 h-6 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-marca-orange border-t-transparent rounded-full animate-spin" />
           <span className="text-sm">Cargando proyectos...</span>
         </div>
       )}

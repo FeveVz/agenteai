@@ -31,7 +31,7 @@ function CardVisita({ visita }) {
       <div className="flex items-center gap-3 text-sm text-gray-600">
         <span className="font-bold">{formatearHora(visita.fecha_visita)}</span>
         <span className="text-gray-300">|</span>
-        <span className="text-ceinys-orange font-medium">{visita.proyecto_interes || 'Sin proyecto'}</span>
+        <span className="text-marca-orange font-medium">{visita.proyecto_interes || 'Sin proyecto'}</span>
       </div>
       {visita.notas && (
         <p className="text-xs text-gray-400 mt-2 bg-gray-50 rounded-lg px-3 py-2">{visita.notas}</p>
@@ -79,20 +79,20 @@ function CalendarioSimple({ fechaSeleccionada, onSeleccionarFecha, fechasConVisi
               onClick={() => onSeleccionarFecha(key)}
               className={`relative aspect-square rounded-xl text-sm font-medium transition-all duration-150 ${
                 seleccionado ? 'bg-black text-white shadow-md'
-                : esHoy(dia) ? 'bg-orange-50 text-ceinys-orange border border-orange-200'
+                : esHoy(dia) ? 'bg-orange-50 text-marca-orange border border-orange-200'
                 : 'hover:bg-gray-100 text-gray-700'
               }`}
             >
               {dia}
               {tieneVisitas && (
-                <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${seleccionado ? 'bg-ceinys-orange-light' : 'bg-ceinys-orange'}`} />
+                <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${seleccionado ? 'bg-marca-orange-light' : 'bg-marca-orange'}`} />
               )}
             </button>
           );
         })}
       </div>
       <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-ceinys-orange rounded-full" /> Con visitas</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-marca-orange rounded-full" /> Con visitas</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-black rounded-full" /> Seleccionado</span>
       </div>
     </div>
@@ -150,7 +150,7 @@ export default function CalendarioVisitas() {
 
         {isLoading && (
           <div className="flex items-center justify-center h-48 gap-3 text-gray-400">
-            <div className="w-5 h-5 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-marca-orange border-t-transparent rounded-full animate-spin" />
             <span className="text-sm">Cargando...</span>
           </div>
         )}

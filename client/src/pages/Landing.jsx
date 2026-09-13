@@ -32,7 +32,7 @@ function LogoMarca({ className = '' }) {
   return (
     <span className={`inline-flex items-baseline gap-2 ${className}`}>
       <span className="font-bold tracking-tight text-white uppercase">{MARCA.nombre}</span>
-      <span className="w-2 h-2 bg-ceinys-orange rounded-sm" />
+      <span className="w-2 h-2 bg-marca-orange rounded-sm" />
     </span>
   );
 }
@@ -55,7 +55,7 @@ export default function Landing() {
           </div>
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-ceinys-orange hover:bg-ceinys-orange-light text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors duration-200"
+            className="bg-marca-orange hover:bg-marca-orange-light text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors duration-200"
           >
             Panel de Control
           </button>
@@ -74,12 +74,12 @@ export default function Landing() {
               <h1 className="text-5xl md:text-6xl font-bold leading-none mb-2 tracking-tight">
                 CADA CONSULTA
               </h1>
-              <h1 className="text-5xl md:text-6xl font-bold leading-none mb-2 tracking-tight text-ceinys-orange">
+              <h1 className="text-5xl md:text-6xl font-bold leading-none mb-2 tracking-tight text-marca-orange">
                 ATENDIDA
               </h1>
               <h1 className="text-5xl md:text-6xl font-bold leading-none mb-8 tracking-tight">
                 CADA VISITA<br />
-                <span className="text-ceinys-blue">AGENDADA.</span>
+                <span className="text-marca-blue">AGENDADA.</span>
               </h1>
               <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-lg">
                 {MARCA.agente}, nuestra asesora con IA, atiende por WhatsApp a toda hora.
@@ -89,7 +89,7 @@ export default function Landing() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="bg-ceinys-orange hover:bg-ceinys-orange-light text-white font-bold px-8 py-4 rounded-xl transition-all duration-200"
+                  className="bg-marca-orange hover:bg-marca-orange-light text-white font-bold px-8 py-4 rounded-xl transition-all duration-200"
                 >
                   Ir al Panel →
                 </button>
@@ -108,7 +108,7 @@ export default function Landing() {
                   { valor: '0', label: 'Consultas sin responder' },
                 ].map((stat) => (
                   <div key={stat.label}>
-                    <p className="text-3xl font-bold text-ceinys-orange">{stat.valor}</p>
+                    <p className="text-3xl font-bold text-marca-orange">{stat.valor}</p>
                     <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
                   </div>
                 ))}
@@ -126,7 +126,7 @@ export default function Landing() {
                     <p className="text-white text-4xl font-bold tracking-tighter leading-tight uppercase break-words">
                       {MARCA.nombre}
                     </p>
-                    <span className="inline-block w-8 h-1 bg-ceinys-orange rounded-full mt-3" />
+                    <span className="inline-block w-8 h-1 bg-marca-orange rounded-full mt-3" />
                     {MARCA.descriptor && (
                       <div className="mt-4 pt-4 border-t border-gray-800">
                         <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">
@@ -142,7 +142,7 @@ export default function Landing() {
                     ¡Hola! ¿Buscas un lote para vivir o para invertir?
                   </p>
                 </div>
-                <div className="absolute -bottom-4 -left-6 bg-ceinys-blue rounded-2xl shadow-lg p-4 max-w-48">
+                <div className="absolute -bottom-4 -left-6 bg-marca-blue rounded-2xl shadow-lg p-4 max-w-48">
                   <p className="text-xs text-sky-50 font-medium mb-1">Visita confirmada</p>
                   <p className="text-sm text-white font-semibold">Visita agendada — sábado 10:00</p>
                 </div>
@@ -193,11 +193,11 @@ export default function Landing() {
             ].map((card, i) => (
               <div
                 key={card.titulo}
-                className="animar-al-scroll border border-gray-200 rounded-2xl p-8 hover:border-ceinys-orange hover:shadow-lg transition-all duration-300 group"
+                className="animar-al-scroll border border-gray-200 rounded-2xl p-8 hover:border-marca-orange hover:shadow-lg transition-all duration-300 group"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
-                <p className="text-ceinys-orange font-bold text-sm mb-6">{card.numero}</p>
-                <h3 className="text-xl font-bold text-black mb-3 group-hover:text-ceinys-orange transition-colors">{card.titulo}</h3>
+                <p className="text-marca-orange font-bold text-sm mb-6">{card.numero}</p>
+                <h3 className="text-xl font-bold text-black mb-3 group-hover:text-marca-orange transition-colors">{card.titulo}</h3>
                 <p className="text-gray-500 leading-relaxed">{card.descripcion}</p>
               </div>
             ))}
@@ -237,7 +237,7 @@ export default function Landing() {
               },
             ].map((item, i) => (
               <div key={item.paso} className="animar-al-scroll flex gap-6 items-start group" style={{ animationDelay: `${i * 150}ms` }}>
-                <div className="flex-shrink-0 w-16 h-16 bg-black group-hover:bg-ceinys-orange rounded-xl flex items-center justify-center transition-colors duration-300">
+                <div className="flex-shrink-0 w-16 h-16 bg-black group-hover:bg-marca-orange rounded-xl flex items-center justify-center transition-colors duration-300">
                   <span className="text-white font-bold text-lg">{item.paso}</span>
                 </div>
                 <div className="border border-gray-200 rounded-2xl p-6 flex-1 hover:border-gray-400 transition-colors">
@@ -255,14 +255,14 @@ export default function Landing() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">
             CADA CONSULTA,<br />
-            <span className="text-ceinys-orange">ATENDIDA.</span>
+            <span className="text-marca-orange">ATENDIDA.</span>
           </h2>
           <p className="text-gray-500 text-lg mb-10">
             Carga los datos de cada proyecto y el agente empieza a captar visitas por WhatsApp.
           </p>
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-ceinys-orange hover:bg-ceinys-orange-light text-white font-bold px-12 py-4 rounded-xl transition-all duration-200 text-lg"
+            className="bg-marca-orange hover:bg-marca-orange-light text-white font-bold px-12 py-4 rounded-xl transition-all duration-200 text-lg"
           >
             Ir al Panel →
           </button>
@@ -277,7 +277,7 @@ export default function Landing() {
             <span className="text-sm">{MARCA.descriptor}</span>
           </div>
           <p className="text-sm">Agente IA de atención por WhatsApp</p>
-          <button onClick={() => navigate('/dashboard')} className="text-ceinys-orange hover:text-ceinys-orange-light text-sm transition-colors font-medium">
+          <button onClick={() => navigate('/dashboard')} className="text-marca-orange hover:text-marca-orange-light text-sm transition-colors font-medium">
             Panel de Control →
           </button>
         </div>

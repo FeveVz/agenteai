@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { obtenerConversaciones, obtenerConversacion } from '../lib/api';
+import { MARCA } from '../config/marca';
 
 function formatearHora(fechaStr) {
   if (!fechaStr) return '';
@@ -37,29 +38,29 @@ function formatearDia(fechaStr) {
 function Spinner({ texto, className = '' }) {
   return (
     <div className={`flex items-center justify-center gap-3 text-gray-400 ${className}`}>
-      <div className="w-5 h-5 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
+      <div className="w-5 h-5 border-2 border-marca-orange border-t-transparent rounded-full animate-spin" />
       {texto && <span className="text-sm">{texto}</span>}
     </div>
   );
 }
 
 function ItemConversacion({ conv, activa, onClick }) {
-  const esDeValeria = conv.ultimo_remitente === 'asistente';
+  const esDelAgente = conv.ultimo_remitente === 'asistente';
   return (
     <button
       onClick={onClick}
       className={`w-full text-left px-4 py-3 border-b border-gray-100 transition-colors ${
-        activa ? 'bg-orange-50 border-l-4 border-l-ceinys-orange' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
+        activa ? 'bg-orange-50 border-l-4 border-l-marca-orange' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
       }`}
     >
       <div className="flex items-baseline justify-between gap-2 mb-0.5">
-        <span className={`text-sm truncate ${activa ? 'font-bold text-ceinys-orange-dark' : 'font-semibold text-gray-900'}`}>
+        <span className={`text-sm truncate ${activa ? 'font-bold text-marca-orange-dark' : 'font-semibold text-gray-900'}`}>
           {conv.numero_telefono}
         </span>
         <span className="text-[11px] text-gray-400 flex-shrink-0">{formatearRelativo(conv.ultima_fecha)}</span>
       </div>
       <p className="text-xs text-gray-500 truncate">
-        {esDeValeria && <span className="text-gray-400">Valeria: </span>}
+        {esDelAgente && <span className="text-gray-400">{MARCA.agente}: </span>}
         {conv.ultimo_mensaje}
       </p>
       <p className="text-[11px] text-gray-300 mt-0.5">{conv.total} mensaje{conv.total !== 1 ? 's' : ''}</p>
@@ -74,7 +75,7 @@ function Burbuja({ mensaje }) {
   return (
     <div className={`flex ${esUsuario ? 'justify-start' : 'justify-end'}`}>
       <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-        esUsuario ? 'bg-white border border-gray-200 rounded-tl-sm' : 'bg-ceinys-orange text-white rounded-tr-sm'
+        esUsuario ? 'bg-white border border-gray-200 rounded-tl-sm' : 'bg-marca-orange text-white rounded-tr-sm'
       }`}>
         <p className={`text-sm leading-relaxed whitespace-pre-wrap ${esUsuario ? 'text-gray-800' : 'text-white'}`}>
           {mensaje.contenido_mensaje}
@@ -173,7 +174,7 @@ export default function TabMensajes() {
             <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400 px-6 text-center">
               <p className="text-4xl">💬</p>
               <p className="text-sm font-medium">Sin conversaciones</p>
-              <p className="text-xs">Aparecerán aquí cuando alguien le escriba a Valeria.</p>
+              <p className="text-xs">Aparecerán aquí cuando alguien le escriba a {MARCA.agente}.</p>
             </div>
           )}
 

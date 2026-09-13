@@ -33,8 +33,8 @@ export default function LoginGate({ children }) {
 
   useEffect(() => {
     const alExpirar = () => { setEstado('login'); setError('Tu sesión expiró. Ingresa de nuevo.'); };
-    window.addEventListener('ceinys:sesion-expirada', alExpirar);
-    return () => window.removeEventListener('ceinys:sesion-expirada', alExpirar);
+    window.addEventListener('agente:sesion-expirada', alExpirar);
+    return () => window.removeEventListener('agente:sesion-expirada', alExpirar);
   }, []);
 
   async function enviar(e) {
@@ -55,7 +55,7 @@ export default function LoginGate({ children }) {
   if (estado === 'verificando') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-marca-orange border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -68,7 +68,7 @@ export default function LoginGate({ children }) {
           <h1 className="text-xl font-bold text-white mb-3">Falta configurar el panel</h1>
           <p className="text-sm text-gray-400 leading-relaxed mb-6">
             Este despliegue no tiene definida la variable{' '}
-            <code className="text-ceinys-orange bg-gray-950 px-1.5 py-0.5 rounded">PANEL_PASSWORD</code>.
+            <code className="text-marca-orange bg-gray-950 px-1.5 py-0.5 rounded">PANEL_PASSWORD</code>.
             Mientras falte, la API de gestión queda cerrada para que las conversaciones
             y los teléfonos de los clientes no queden expuestos.
           </p>
@@ -87,7 +87,7 @@ export default function LoginGate({ children }) {
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-2">
               <h1 className="text-2xl font-bold text-white tracking-tight uppercase">{MARCA.nombre}</h1>
-              <span className="w-2 h-2 bg-ceinys-orange rounded-sm" />
+              <span className="w-2 h-2 bg-marca-orange rounded-sm" />
             </div>
             <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">Panel de Control</p>
           </div>
@@ -104,7 +104,7 @@ export default function LoginGate({ children }) {
                 onChange={(e) => setPassword(e.target.value)}
                 autoFocus
                 autoComplete="current-password"
-                className="w-full px-4 py-2.5 rounded-xl bg-black border border-gray-800 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-ceinys-orange focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 rounded-xl bg-black border border-gray-800 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-marca-orange focus:border-transparent transition-all"
                 placeholder="••••••••"
               />
             </div>
@@ -118,7 +118,7 @@ export default function LoginGate({ children }) {
             <button
               type="submit"
               disabled={enviando || !password}
-              className="w-full bg-ceinys-orange hover:bg-ceinys-orange-light disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold px-6 py-3 rounded-xl transition-all duration-200"
+              className="w-full bg-marca-orange hover:bg-marca-orange-light disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold px-6 py-3 rounded-xl transition-all duration-200"
             >
               {enviando ? 'Verificando...' : 'Ingresar'}
             </button>

@@ -28,7 +28,7 @@ function CardVisitaLista({ visita }) {
             <div>
               <p className="font-bold text-gray-900">{visita.nombre_cliente || 'Cliente sin nombre'}</p>
               {visita.proyecto_interes && (
-                <p className="text-sm text-ceinys-orange font-medium">{visita.proyecto_interes}</p>
+                <p className="text-sm text-marca-orange font-medium">{visita.proyecto_interes}</p>
               )}
               <p className="text-xs text-gray-400">{visita.numero_telefono}</p>
             </div>
@@ -74,7 +74,7 @@ export default function ListaVisitas() {
       <div className="space-y-3 overflow-y-auto max-h-[600px] pr-1">
         {isLoading && (
           <div className="flex items-center justify-center h-48 gap-3 text-gray-400">
-            <div className="w-6 h-6 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-marca-orange border-t-transparent rounded-full animate-spin" />
             <span className="text-sm">Cargando visitas...</span>
           </div>
         )}

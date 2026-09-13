@@ -19,7 +19,7 @@ function hoyEnPeru() {
 function Cargando({ texto }) {
   return (
     <div className="flex items-center justify-center gap-3 py-10 text-gray-400">
-      <div className="w-5 h-5 border-2 border-ceinys-orange border-t-transparent rounded-full animate-spin" />
+      <div className="w-5 h-5 border-2 border-marca-orange border-t-transparent rounded-full animate-spin" />
       <span className="text-sm">{texto}</span>
     </div>
   );
@@ -81,9 +81,9 @@ function Calendario({ mes, onCambiarMes, seleccionada, onSeleccionar, minima, ma
               disabled={fueraDeRango}
               onClick={() => onSeleccionar(clave)}
               className={`aspect-square rounded-xl text-sm font-medium transition-all ${
-                elegida ? 'bg-ceinys-orange text-white shadow-md'
+                elegida ? 'bg-marca-orange text-white shadow-md'
                 : fueraDeRango ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-orange-50 hover:text-ceinys-orange'
+                : 'text-gray-700 hover:bg-orange-50 hover:text-marca-orange'
               }`}
             >
               {dia}
@@ -202,7 +202,7 @@ export default function Agendar() {
               href={confirmada.mapa_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full bg-ceinys-blue hover:bg-ceinys-blue-light text-white font-bold py-3 rounded-xl transition-all mb-5"
+              className="block w-full bg-marca-blue hover:bg-marca-blue-light text-white font-bold py-3 rounded-xl transition-all mb-5"
             >
               📍 Cómo llegar
             </a>
@@ -235,7 +235,7 @@ export default function Agendar() {
                 clavado en "CEINYS", y esta es la única pantalla que el comprador
                 abre sí o sí desde el enlace de WhatsApp. */}
             <span className="font-bold text-white text-lg tracking-tight uppercase">{contexto.empresa}</span>
-            <span className="w-2 h-2 bg-ceinys-orange rounded-sm" />
+            <span className="w-2 h-2 bg-marca-orange rounded-sm" />
           </div>
           <p className="text-xs text-gray-500 mt-0.5">Agenda tu visita — {contexto.horario.dias}, {String(contexto.horario.apertura).padStart(2, '0')}:00 a {String(contexto.horario.cierre).padStart(2, '0')}:00</p>
         </div>
@@ -253,8 +253,8 @@ export default function Agendar() {
                 onClick={() => setProyecto(p)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
                   proyecto === p
-                    ? 'bg-ceinys-orange text-white border-ceinys-orange'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-ceinys-orange'
+                    ? 'bg-marca-orange text-white border-marca-orange'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-marca-orange'
                 }`}
               >
                 {p}
@@ -300,8 +300,8 @@ export default function Agendar() {
                     onClick={() => setHora(h)}
                     className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${
                       hora === h
-                        ? 'bg-ceinys-orange text-white border-ceinys-orange'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-ceinys-orange'
+                        ? 'bg-marca-orange text-white border-marca-orange'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-marca-orange'
                     }`}
                   >
                     {h}
@@ -322,7 +322,7 @@ export default function Agendar() {
                 value={nombre}
                 onChange={e => setNombre(e.target.value)}
                 placeholder="Como figura en tu DNI"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ceinys-orange transition-all"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
               />
             </div>
             <div className="space-y-1.5">
@@ -332,7 +332,7 @@ export default function Agendar() {
                 onChange={e => setNotas(e.target.value)}
                 rows={2}
                 placeholder="Cuántas personas van, si necesitas movilidad..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ceinys-orange transition-all"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
               />
             </div>
             <p className="text-xs text-gray-400">
@@ -348,7 +348,7 @@ export default function Agendar() {
         <button
           type="submit"
           disabled={!listoParaReservar || enviando}
-          className="w-full bg-ceinys-orange hover:bg-ceinys-orange-light disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-4 rounded-xl transition-all"
+          className="w-full bg-marca-orange hover:bg-marca-orange-light disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-4 rounded-xl transition-all"
         >
           {enviando ? 'Confirmando...'
             : listoParaReservar ? `Confirmar visita — ${fechaLegible}, ${hora}`

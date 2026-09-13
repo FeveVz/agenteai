@@ -45,7 +45,7 @@ function Panel() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-bold text-white tracking-tight uppercase">{MARCA.nombre}</h1>
-                <span className="w-1.5 h-1.5 bg-ceinys-orange rounded-sm" />
+                <span className="w-1.5 h-1.5 bg-marca-orange rounded-sm" />
               </div>
               <p className="text-xs text-gray-500">Panel de Control — Agente IA</p>
             </div>
@@ -59,7 +59,7 @@ function Panel() {
             </button>
             <button
               onClick={salir}
-              className="text-gray-500 hover:text-ceinys-orange text-sm transition-colors"
+              className="text-gray-500 hover:text-marca-orange text-sm transition-colors"
             >
               Salir
             </button>
@@ -74,7 +74,7 @@ function Panel() {
                 onClick={() => setPestanaActiva(tab.id)}
                 className={`px-6 py-3 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap ${
                   pestanaActiva === tab.id
-                    ? 'border-ceinys-orange text-ceinys-orange'
+                    ? 'border-marca-orange text-marca-orange'
                     : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-700'
                 }`}
               >
