@@ -420,12 +420,25 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
 
       contexto.imagenes = (contexto.imagenes || []).concat([empresa.pago_imagen_url.trim()]);
 
+      // Una constructora con varios proyectos tiene UNA sola grafica, y suele
+      // venir encabezada con el nombre de uno de ellos. El comprador de otro
+      // condominio ve un nombre que no es el suyo justo antes de transferir, y
+      // duda. Las cuentas son correctas —son de la empresa, no del proyecto—,
+      // asi que conviene decirlo antes de que lo pregunte.
+      const hermanos = (activos || []).filter(p => normalizar(p.desarrolladora || '') === normalizar(proyecto.desarrolladora));
+      const avisoDeEncabezado = hermanos.length > 1
+        ? `OJO: ${empresa.razon_social || empresa.nombre} tiene varios proyectos y la grafica es una sola, `
+          + `asi que puede venir encabezada con el nombre de otro condominio. Aclarale que las cuentas son de la empresa `
+          + `y valen igual para ${proyecto.nombre}, sin que el cliente tenga que preguntarlo. `
+        : '';
+
       return {
         exito: true,
         proyecto: proyecto.nombre,
         empresa: empresa.razon_social || empresa.nombre,
         mensaje: `Se está enviando la gráfica oficial de cuentas de ${empresa.razon_social || empresa.nombre}, la empresa de ${proyecto.nombre}. `
                + 'Dile en una frase corta que ahí están las cuentas y que el titular es esa empresa, para que verifique el nombre antes de transferir. '
+               + avisoDeEncabezado
                + 'NUNCA escribas números de cuenta en el chat, ni los repitas, ni los resumas: la imagen es el único medio.',
       };
     }
