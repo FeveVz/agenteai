@@ -242,3 +242,54 @@ test('el endpoint de subida exige login y valida antes de tocar Supabase', async
     delete process.env.PANEL_PASSWORD;
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  Identidad del agente
+//
+//  Un solo repositorio atiende a varias clientas. El respaldo del
+//  nombre estaba clavado en "Valeria", el agente de Ceinys: cualquier
+//  clienta que no cargara el campo terminaba presentándose con el
+//  nombre de otra empresa ante sus propios compradores.
+// ═══════════════════════════════════════════════════════════════════
+
+const { construirSystemPrompt } = require('../server/services/openai');
+
+const CONFIG_BASE = {
+  nombre_agencia: 'Pamela Barrios',
+  tipo_negocio: 'asesora inmobiliaria en Ica',
+  hora_apertura: 9, hora_cierre: 17, minutos_por_slot: 30, dias_atencion: '0,1,2,3,4,5,6',
+};
+
+test('el agente usa el nombre cargado en la configuración', () => {
+  const prompt = construirSystemPrompt('+51900000000', { ...CONFIG_BASE, nombre_agente: 'Camila' }, []);
+  assert.match(prompt, /Eres Camila, la asesora virtual de Pamela Barrios/);
+});
+
+test('sin nombre cargado no se cuela el de otra clienta', () => {
+  for (const vacio of [null, undefined, '', '   ']) {
+    const prompt = construirSystemPrompt('+51900000000', { ...CONFIG_BASE, nombre_agente: vacio }, []);
+    assert.doesNotMatch(prompt, /Valeria/i, `con nombre_agente = ${JSON.stringify(vacio)}`);
+    assert.match(prompt, /Eres la asesora virtual de Pamela Barrios/);
+    // Sin nombre no puede quedar una coma huérfana: "Eres , la asesora...".
+    assert.doesNotMatch(prompt, /Eres\s*,/);
+  }
+});
+
+test('el rubro tampoco cae al de otra clienta', () => {
+  const prompt = construirSystemPrompt('+51900000000', { ...CONFIG_BASE, tipo_negocio: '' }, []);
+  assert.doesNotMatch(prompt, /constructora e inmobiliaria peruana/i);
+  assert.doesNotMatch(prompt, /,\s*\.\s/, 'no debe quedar puntuación suelta al faltar el rubro');
+});
+
+test('ningún nombre propio de otra clienta sobrevive en el código del prompt', () => {
+  const fuente = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'server', 'services', 'openai.js'), 'utf8');
+  // Solo el código ejecutable: los comentarios explican justamente este bug.
+  const sinComentarios = fuente
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+  for (const marca of ['Valeria', 'Ceinys']) {
+    assert.doesNotMatch(sinComentarios, new RegExp(`['"\`][^'"\`]*${marca}`, 'i'),
+      `"${marca}" no puede aparecer en un literal del prompt`);
+  }
+});

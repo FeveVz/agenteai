@@ -685,7 +685,11 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
   // como "Valeria" y "constructora e inmobiliaria peruana", que para una asesora
   // independiente es directamente falso: la haria afirmarle a un comprador que
   // ella construye las obras que solo intermedia.
-  const nombreAgente = (config.nombre_agente || '').trim() || 'Valeria';
+  //
+  // Sin nombre cargado se presenta como "la asesora virtual" y nada mas. El
+  // respaldo NO puede ser un nombre propio: con varias clientas en el mismo
+  // codigo, el agente de una terminaria presentandose con el nombre de otra.
+  const nombreAgente = (config.nombre_agente || '').trim();
   const tipoNegocio = (config.tipo_negocio || '').trim();
 
   let serviciosTexto = config.servicios || '[]';
@@ -723,7 +727,7 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
       + 'NO inventes ninguno. Si el cliente pide un teléfono, dirección u horario, dile que un asesor '
       + 'lo va a contactar por este mismo WhatsApp para coordinar.';
 
-  return `Eres ${nombreAgente}, la asesora virtual de ${empresaODefecto}${tipoNegocio ? `, ${tipoNegocio}` : ''}. Eres cercana, clara y orientada a que el cliente conozca el proyecto en persona.${reglasTexto}
+  return `Eres ${nombreAgente ? `${nombreAgente}, ` : ''}la asesora virtual de ${empresaODefecto}${tipoNegocio ? `, ${tipoNegocio}` : ''}. Eres cercana, clara y orientada a que el cliente conozca el proyecto en persona.${reglasTexto}
 
 FECHA Y HORA ACTUAL (Perú, Lima): ${ahora}
 Usa esta fecha como referencia para toda consulta de disponibilidad y agendamiento. Nunca agendes en el pasado.
@@ -832,11 +836,18 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
   }
 
   const empresaODefecto = (config.nombre_agencia || '').trim() || 'la empresa';
-  const texto = mensaje.content || `¡Hola! Soy ${(config.nombre_agente || '').trim() || 'Valeria'} de ${empresaODefecto}. ¿Buscas un lote o una casa? Cuéntame qué tienes en mente.`;
+  // Sin nombre cargado, "la asesora virtual de X" — nunca el nombre propio de
+  // otra clienta. Ver el comentario en construirSystemPrompt.
+  const quienSaluda = (config.nombre_agente || '').trim();
+  const texto = mensaje.content
+    || `¡Hola! Soy ${quienSaluda ? `${quienSaluda} de ${empresaODefecto}` : `la asesora virtual de ${empresaODefecto}`}. ¿Buscas un lote o una casa? Cuéntame qué tienes en mente.`;
 
   // Sin duplicados: si el modelo pide las fotos del mismo proyecto dos veces
   // en el mismo turno, el cliente recibiría la imagen repetida.
   return { texto, imagenes: [...new Set(contexto.imagenes)] };
 }
 
-module.exports = { procesarMensajeConIA };
+// construirSystemPrompt se exporta para poder probarlo: el respaldo del
+// nombre del agente es justo el tipo de detalle que se rompe en silencio
+// y termina presentando a una clienta con el nombre de otra.
+module.exports = { procesarMensajeConIA, construirSystemPrompt };

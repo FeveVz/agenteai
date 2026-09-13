@@ -1,7 +1,7 @@
 {
-  "name": "ceinys-agente-ia",
+  "name": "agente-ia-inmobiliario",
   "version": "1.0.0",
-  "description": "Agente IA de Ceinys para atención y agendamiento de visitas por WhatsApp",
+  "description": "Agente IA de WhatsApp para inmobiliarias: atencion y agendamiento de visitas",
   "main": "server/index.js",
   "scripts": {
     "dev": "concurrently \"node server/index.js\" \"cd client && npm run dev\"",

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { obtenerVisitas } from '../lib/api';
+import { MARCA } from '../config/marca';
 
 const ESTADO_CONFIG = {
   confirmada: { clase: 'bg-emerald-100 text-emerald-700 border-emerald-200', icono: '✅' },
@@ -88,7 +89,7 @@ export default function ListaVisitas() {
             <p className="text-5xl">📅</p>
             <p className="text-sm font-medium">No hay visitas todavía.</p>
             <p className="text-xs text-center max-w-xs">
-              Las visitas aparecerán aquí cuando Valeria las agende por WhatsApp.
+              Las visitas aparecerán aquí cuando {MARCA.agente} las agende por WhatsApp.
             </p>
           </div>
         )}
