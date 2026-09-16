@@ -55,6 +55,12 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(__dirname, '..'), 'VITE_');
 
   return {
+    // El .env vive en la raiz del repo, no dentro de client/. Sin esto el
+    // plugin de arriba leia la raiz y `import.meta.env` leia client/: dos
+    // fuentes distintas para la misma marca, y en local el title decia una
+    // cosa y el panel otra. En Vercel no se notaba porque todo llega por
+    // process.env.
+    envDir: path.resolve(__dirname, '..'),
     plugins: [react(), marcaEnHtml({ ...process.env, ...env })],
     resolve: {
       alias: {

@@ -19,7 +19,12 @@ if (!process.env.TWILIO_AUTH_TOKEN) {
 }
 
 const app = require('./app');
-const PORT = process.env.PORT || 3001;
+// SERVER_PORT primero: en desarrollo el cliente de Vite manda en el puerto
+// principal y algunos entornos inyectan PORT con ESE valor, con lo cual la
+// API se levanta encima de Vite y el proxy /api se queda sin backend.
+// Fijando SERVER_PORT en .env la API queda donde el proxy la busca.
+// En produccion no existe y todo sigue saliendo de PORT.
+const PORT = process.env.SERVER_PORT || process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`\n🏗️  Agente IA — Servidor iniciado`);

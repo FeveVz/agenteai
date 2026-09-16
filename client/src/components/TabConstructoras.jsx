@@ -5,7 +5,7 @@ import { obtenerDesarrolladoras, crearDesarrolladora, actualizarDesarrolladora, 
 import SubirImagen from './SubirImagen';
 
 function Campo({ label, name, value, onChange, placeholder, textarea = false, rows = 2 }) {
-  const clases = 'w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marca-orange focus:border-transparent transition-all';
+  const clases = 'w-full px-3.5 py-2.5 rounded-[10px] bg-black/[0.04] text-[15px] text-ios-etiqueta placeholder:text-ios-etiqueta-3 border-0 outline-none focus:ring-2 focus:ring-marca-orange/40 transition-all';
   return (
     <div className="space-y-1">
       <label className="block text-xs font-medium text-gray-600">{label}</label>
@@ -36,7 +36,7 @@ function Tarjeta({ empresa, proyectos }) {
   const tienePago = Boolean((empresa.pago_imagen_url || '').trim());
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-ios-tarjeta rounded-ios shadow-tarjeta ring-1 ring-black/[0.04] overflow-hidden">
       <button onClick={() => setAbierto(!abierto)} className="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors text-left">
         <div className="min-w-0">
           <p className="font-bold text-gray-900 truncate">{empresa.nombre}</p>
@@ -109,7 +109,7 @@ function Tarjeta({ empresa, proyectos }) {
             <button
               onClick={() => mutacion.mutate(form)}
               disabled={mutacion.isPending}
-              className="bg-black hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm"
+              className="bg-marca-orange hover:bg-marca-orange-light disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-200 text-[14px] active:scale-95"
             >
               {mutacion.isPending ? 'Guardando...' : 'Guardar'}
             </button>
@@ -145,13 +145,13 @@ function FormularioNueva() {
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre comercial"
-          className="w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
+          className="w-full px-3.5 py-2.5 rounded-[10px] bg-black/[0.04] text-[15px] border-0 outline-none focus:ring-2 focus:ring-marca-orange/40 transition-all"
         />
       </div>
       <button
         type="submit"
         disabled={mutacion.isPending || !nombre.trim()}
-        className="bg-marca-orange hover:bg-marca-orange-light disabled:bg-gray-300 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm whitespace-nowrap"
+        className="bg-marca-orange hover:bg-marca-orange-light disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-200 text-[14px] whitespace-nowrap active:scale-95"
       >
         {mutacion.isPending ? 'Creando...' : 'Agregar'}
       </button>
@@ -175,17 +175,13 @@ export default function TabConstructoras() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-base font-bold text-gray-900">Constructoras</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Las empresas dueñas de los proyectos. Los datos de pago viven acá y no en cada proyecto:
-          así todos los proyectos de una misma constructora comparten las mismas cuentas y es imposible
-          que se desincronicen.
-        </p>
-      </div>
+      <p className="text-[13px] text-ios-etiqueta-2 px-4 sm:px-1 mb-4 leading-snug">
+        Los datos de pago viven acá y no en cada proyecto: así todos los proyectos de una misma
+        constructora comparten las mismas cuentas y es imposible que se desincronicen.
+      </p>
 
       {(huerfanos.length > 0 || sinAsignar.length > 0) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-1">
+        <div className="bg-ios-ambar/[0.10] rounded-ios p-4 text-[13px] text-ios-etiqueta-2 space-y-1 leading-snug">
           {sinAsignar.length > 0 && (
             <p>Sin constructora asignada: <strong>{sinAsignar.map(p => p.nombre).join(', ')}</strong>.</p>
           )}

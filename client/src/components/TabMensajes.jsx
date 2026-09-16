@@ -149,16 +149,13 @@ export default function TabMensajes() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-black">
-        <div>
-          <h2 className="text-base font-bold text-white">Conversaciones</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {cargandoConvs ? 'Cargando...' : `${conversaciones.length} chat${conversaciones.length !== 1 ? 's' : ''} · se actualiza cada 5s`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-green-400 border border-green-800 bg-green-950 px-3 py-1.5 rounded-full">
-          <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+    <div className="bg-ios-tarjeta rounded-ios shadow-tarjeta ring-1 ring-black/[0.04] overflow-hidden">
+      <div className="px-4 py-3 border-b border-ios-separador flex items-center justify-between">
+        <p className="text-[13px] text-ios-etiqueta-2">
+          {cargandoConvs ? 'Cargando…' : `${conversaciones.length} chat${conversaciones.length !== 1 ? 's' : ''}`}
+        </p>
+        <div className="flex items-center gap-1.5 text-[12px] font-medium text-ios-verde bg-ios-verde/10 px-2.5 py-1 rounded-full">
+          <span className="w-1.5 h-1.5 bg-ios-verde rounded-full animate-pulse" />
           En vivo
         </div>
       </div>

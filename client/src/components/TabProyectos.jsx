@@ -13,7 +13,7 @@ function tieneDatos(proyecto) {
 }
 
 function Campo({ label, name, value, onChange, placeholder, textarea = false, rows = 2 }) {
-  const clases = 'w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marca-orange focus:border-transparent transition-all';
+  const clases = 'w-full px-3.5 py-2.5 rounded-[10px] bg-black/[0.04] text-[15px] text-ios-etiqueta placeholder:text-ios-etiqueta-3 border-0 outline-none focus:ring-2 focus:ring-marca-orange/40 transition-all';
   return (
     <div className="space-y-1">
       <label className="block text-xs font-medium text-gray-600">{label}</label>
@@ -48,7 +48,7 @@ function TarjetaProyecto({ proyecto }) {
   const completo = tieneDatos(proyecto);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-ios-tarjeta rounded-ios shadow-tarjeta ring-1 ring-black/[0.04] overflow-hidden">
       <button
         onClick={() => setAbierto(!abierto)}
         className="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors text-left"
@@ -185,7 +185,7 @@ function TarjetaProyecto({ proyecto }) {
             <button
               onClick={() => mutacion.mutate(form)}
               disabled={mutacion.isPending}
-              className="bg-black hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm"
+              className="bg-marca-orange hover:bg-marca-orange-light disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-200 text-[14px] active:scale-95"
             >
               {mutacion.isPending ? 'Guardando...' : 'Guardar'}
             </button>
@@ -221,13 +221,13 @@ function FormularioNuevo() {
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre del proyecto"
-          className="w-full px-3.5 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
+          className="w-full px-3.5 py-2.5 rounded-[10px] bg-black/[0.04] text-[15px] border-0 outline-none focus:ring-2 focus:ring-marca-orange/40 transition-all"
         />
       </div>
       <button
         type="submit"
         disabled={mutacion.isPending || !nombre.trim()}
-        className="bg-marca-orange hover:bg-marca-orange-light disabled:bg-gray-300 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm whitespace-nowrap"
+        className="bg-marca-orange hover:bg-marca-orange-light disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-200 text-[14px] whitespace-nowrap active:scale-95"
       >
         {mutacion.isPending ? 'Creando...' : 'Agregar'}
       </button>
@@ -246,15 +246,15 @@ export default function TabProyectos() {
 
   return (
     <div className="space-y-5">
-      <div className="bg-black rounded-2xl border border-gray-800 shadow-sm p-5">
-        <h2 className="text-base font-bold text-white">{MARCA.nombre ? `Proyectos de ${MARCA.nombre}` : "Proyectos"}</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          {MARCA.agente} solo habla de los proyectos cargados aquí, y solo cita los datos que completes.
-          {sinDatos > 0 && (
-            <span className="text-amber-400"> {sinDatos} proyecto{sinDatos !== 1 ? 's' : ''} sin datos todavía.</span>
-          )}
-        </p>
-      </div>
+      {sinDatos > 0 && (
+        <div className="flex items-start gap-2.5 bg-ios-ambar/[0.10] rounded-ios px-4 py-3">
+          <span className="text-[15px] leading-none mt-0.5">⚠️</span>
+          <p className="text-[13px] text-ios-etiqueta-2 leading-snug">
+            <strong className="text-ios-etiqueta">{sinDatos} proyecto{sinDatos !== 1 ? 's' : ''} sin datos.</strong>{' '}
+            {MARCA.agente} no va a poder dar precio ni metraje de {sinDatos !== 1 ? 'esos' : 'ese'} hasta que los completes.
+          </p>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center justify-center h-48 gap-3 text-gray-400">
