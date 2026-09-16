@@ -32,7 +32,7 @@ router.put('/', async (req, res) => {
   const { nombre_agencia, slogan, direccion, telefono, email, horarios, servicios, sobre_agencia, webhook_url,
         casos_exito, redes_sociales, preguntas_frecuentes, reglas_agente, email_alertas,
         hora_apertura, hora_cierre, minutos_por_slot, dias_atencion,
-        nombre_agente, tipo_negocio } = req.body;
+        nombre_agente, tipo_negocio, estilo_respuesta } = req.body;
 
   if (nombre_agencia !== undefined && nombre_agencia.trim() === '') {
     return res.status(400).json({ error: 'El nombre de la agencia no puede estar vacío.' });
@@ -81,6 +81,7 @@ router.put('/', async (req, res) => {
     if (dias_atencion !== undefined) actualizacion.dias_atencion = dias_atencion;
     if (nombre_agente !== undefined) actualizacion.nombre_agente = nombre_agente;
     if (tipo_negocio !== undefined) actualizacion.tipo_negocio = tipo_negocio;
+    if (estilo_respuesta !== undefined) actualizacion.estilo_respuesta = estilo_respuesta;
 
     const { data: configActualizada, error: errorUpdate } = await supabase
       .from('configuracion_agencia')

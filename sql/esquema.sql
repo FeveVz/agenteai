@@ -112,6 +112,9 @@ CREATE TABLE IF NOT EXISTS configuracion_agencia (
   redes_sociales TEXT,
   preguntas_frecuentes TEXT,
   reglas_agente TEXT,
+  estilo_respuesta TEXT,        -- como se VE la respuesta en WhatsApp (emojis, negritas,
+                                --     saltos de linea). El codigo trae una base expresiva;
+                                --     lo que se cargue aca manda por encima de ella.
   email_alertas TEXT,           -- destinatarios del aviso al agendarse una visita
   webhook_url TEXT,
   creado_en TIMESTAMPTZ DEFAULT NOW(),

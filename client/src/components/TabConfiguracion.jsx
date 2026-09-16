@@ -127,7 +127,7 @@ export default function TabConfiguracion() {
     email: '', horarios: '', servicios: '', sobre_agencia: '',
     casos_exito: '', redes_sociales: '', preguntas_frecuentes: '', reglas_agente: '',
     email_alertas: '',
-    nombre_agente: '', tipo_negocio: '',
+    nombre_agente: '', tipo_negocio: '', estilo_respuesta: '',
     hora_apertura: 9, hora_cierre: 17, minutos_por_slot: 30, dias_atencion: '0,1,2,3,4,5,6',
   });
 
@@ -152,6 +152,7 @@ export default function TabConfiguracion() {
         email_alertas: c.email_alertas || '',
         nombre_agente: c.nombre_agente || '',
         tipo_negocio: c.tipo_negocio || '',
+        estilo_respuesta: c.estilo_respuesta || '',
         hora_apertura: c.hora_apertura ?? 9,
         hora_cierre: c.hora_cierre ?? 17,
         minutos_por_slot: c.minutos_por_slot ?? 30,
@@ -245,6 +246,37 @@ export default function TabConfiguracion() {
                 <strong>Para desarrollo local:</strong> usa <code className="bg-gray-200 px-1.5 py-0.5 rounded font-mono">ngrok http 3001</code> para exponer el servidor.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Estilo de las respuestas */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-black">
+          <h2 className="text-base font-bold text-white">Estilo de las respuestas</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Cómo se VEN los mensajes en WhatsApp. Déjalo vacío y usa el formato por defecto.</p>
+        </div>
+        <div className="p-6">
+          <TextareaField
+            label=""
+            name="estilo_respuesta"
+            value={formulario.estilo_respuesta}
+            onChange={manejarCambio}
+            placeholder={`Por defecto ${MARCA.agente} ya separa los datos en líneas, usa *negrita* para nombres y precios, y un emoji por dato.\n\nEscribe acá solo lo que quieras CAMBIAR de eso. Por ejemplo:\n- Sin emojis, solo negritas y saltos de línea.\n- Trata al cliente de usted.\n- Mensajes aún más cortos, máximo 60 palabras.`}
+            rows={6}
+          />
+          <p className="text-xs text-gray-400 mt-3">
+            WhatsApp solo entiende *negrita*, _cursiva_ y ~tachado~. No hay títulos, tablas ni colores.
+          </p>
+          <div className="flex justify-end mt-4">
+            <button
+              type="button"
+              onClick={() => mutacion.mutate(formulario)}
+              disabled={mutacion.isPending}
+              className="bg-black hover:bg-gray-900 disabled:bg-gray-400 text-white font-bold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm"
+            >
+              {mutacion.isPending ? 'Guardando...' : 'Guardar Estilo'}
+            </button>
           </div>
         </div>
       </div>

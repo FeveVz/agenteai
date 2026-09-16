@@ -337,3 +337,55 @@ test('ninguna marca de otra clienta sobrevive en el cliente', () => {
 
   assert.deepStrictEqual(hallazgos, [], 'marcas ajenas en el cliente:\n  ' + hallazgos.join('\n  '));
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  Formato de la respuesta
+//
+//  El prompt no tenía ninguna regla de formato: el modelo devolvía
+//  párrafos corridos, que en un celular nadie lee. La base vive en el
+//  código para que una clienta nueva no arranque sin formato, y
+//  `estilo_respuesta` la ajusta desde el panel sin desplegar.
+// ═══════════════════════════════════════════════════════════════════
+
+test('el formato base viaja siempre, aunque no haya nada configurado', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  assert.match(prompt, /FORMATO DEL MENSAJE/);
+  assert.match(prompt, /\*negrita\*/);
+  assert.match(prompt, /una l[íi]nea en blanco/i);
+});
+
+test('el formato prohíbe el markdown que WhatsApp no entiende', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  // WhatsApp muestra `## titulo` y `[texto](url)` tal cual: quedan peor que
+  // el párrafo corrido que el formato viene a arreglar.
+  assert.match(prompt, /NUNCA uses ## para t[íi]tulos/);
+  assert.match(prompt, /\[texto\]\(url\)/);
+});
+
+test('el estilo de la clienta se suma al base y manda sobre él', () => {
+  const prompt = construirSystemPrompt('+51900000000',
+    { ...CONFIG_BASE, estilo_respuesta: 'Sin emojis de dinero.' }, []);
+  assert.match(prompt, /FORMATO DEL MENSAJE/, 'el base no puede desaparecer');
+  assert.match(prompt, /AJUSTES DE ESTILO DE PAMELA BARRIOS/);
+  assert.match(prompt, /Sin emojis de dinero\./);
+  // El orden importa: lo de la clienta va después, para que gane.
+  assert.ok(prompt.indexOf('AJUSTES DE ESTILO') > prompt.indexOf('FORMATO DEL MENSAJE'));
+});
+
+test('un estilo en blanco no deja un encabezado huérfano', () => {
+  for (const vacio of [null, undefined, '', '   ']) {
+    const prompt = construirSystemPrompt('+51900000000', { ...CONFIG_BASE, estilo_respuesta: vacio }, []);
+    assert.doesNotMatch(prompt, /AJUSTES DE ESTILO/, `con estilo_respuesta = ${JSON.stringify(vacio)}`);
+  }
+});
+
+test('el panel puede guardar el estilo', () => {
+  const ruta = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'server', 'routes', 'configuracion.js'), 'utf8');
+  // Sin esto el campo se edita en el panel, se ve guardado y nunca llega a
+  // la base: el PUT descarta en silencio todo lo que no lista.
+  assert.ok(/estilo_respuesta[^=]*\}\s*=\s*req\.body/s.test(ruta),
+    'el PUT tiene que leer estilo_respuesta del body');
+  assert.ok(ruta.includes('actualizacion.estilo_respuesta = estilo_respuesta'),
+    'el PUT tiene que escribirlo en la base');
+});

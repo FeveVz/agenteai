@@ -734,6 +734,33 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
     lineaSiExiste('Redes sociales', config.redes_sociales),
   ].join('');
 
+  // ── Como se VE la respuesta ────────────────────────────────────────
+  //
+  // Sin esto el modelo escribe parrafos corridos: el unico limite que habia
+  // era de palabras. En WhatsApp, leido en un celular, un bloque de texto se
+  // saltea. La base vive aca para que ninguna clienta nueva arranque sin
+  // formato, y `estilo_respuesta` la ajusta desde el panel sin desplegar.
+  //
+  // Nada de markdown: WhatsApp solo entiende *negrita*, _cursiva_, ~tachado~
+  // y monoespaciado. Un `## titulo` o un `[texto](url)` se ven literales y
+  // quedan peor que el parrafo que venian a arreglar.
+  const FORMATO_BASE = [
+    'FORMATO DEL MENSAJE (esto es WhatsApp en un celular, no un email):',
+    '- Separa las ideas en bloques cortos con una línea en blanco entre ellos. Ningún párrafo de más de dos líneas.',
+    '- Cuando hables de un proyecto, ábrelo con un emoji y su nombre en *negrita*, solo en esa línea.',
+    '- Los datos van uno por línea, cada uno con su emoji adelante: 📍 ubicación, 📐 área o metraje, 💰 precio, 🏗️ etapa y entrega, ✅ disponibilidad, 🗓️ fechas y visitas, 🚗 movilidad.',
+    '- *Negrita* para nombres de proyecto, precios, metrajes y fechas. Que el ojo los encuentre sin leer todo.',
+    '- Cierra con UNA sola pregunta o invitación, en su propia línea. Nunca dos preguntas en el mismo mensaje.',
+    '- NUNCA uses ## para títulos, tablas, guiones bajos para subrayar, ni enlaces tipo [texto](url): WhatsApp los muestra tal cual y quedan mal. Los enlaces van pelados, en su propia línea.',
+    '- El emoji ordena, no decora: uno por línea de dato y nada más. Estás vendiendo un lote de decenas de miles de soles, no una promoción.',
+  ].join('\n');
+
+  const estiloPersonalizado = (config.estilo_respuesta || '').trim();
+  const formatoTexto = '\n\n' + FORMATO_BASE
+    + (estiloPersonalizado
+      ? `\n\nAJUSTES DE ESTILO DE ${empresaODefecto.toUpperCase()} (mandan sobre lo anterior si se contradicen):\n${estiloPersonalizado}`
+      : '');
+
   const notaSinContacto = contacto
     ? ''
     : '\n\n⚠️ IMPORTANTE: no hay datos de contacto cargados (teléfono, email, dirección, horarios). '
@@ -760,7 +787,7 @@ Información de ${empresaODefecto}:
 - Empresa: ${empresaODefecto}${config.slogan ? ` — ${config.slogan}` : ''}${contacto}
 - Qué ofrecemos: ${serviciosTexto}${config.sobre_agencia ? `\n- Sobre nosotros: ${config.sobre_agencia}` : ''}${casosTexto}${faqTexto}${notaSinContacto}
 
-El número de WhatsApp del cliente es: ${numeroTelefono}
+El número de WhatsApp del cliente es: ${numeroTelefono}${formatoTexto}
 
 Reglas importantes:
 - MENSAJES CORTOS: máximo 120 palabras. WhatsApp no es email — sé directa y conversacional. Si te piden todos los proyectos, menciona los 3-4 más relevantes según lo que busca y ofrece ampliar.
