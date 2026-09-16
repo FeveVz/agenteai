@@ -749,9 +749,11 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
     '- Separa las ideas en bloques cortos con una línea en blanco entre ellos. Ningún párrafo de más de dos líneas.',
     '- Cuando hables de un proyecto, ábrelo con un emoji y su nombre en *negrita*, solo en esa línea.',
     '- Los datos van uno por línea, cada uno con su emoji adelante: 📍 ubicación, 📐 área o metraje, 💰 precio, 🏗️ etapa y entrega, ✅ disponibilidad, 🗓️ fechas y visitas, 🚗 movilidad.',
-    '- *Negrita* para nombres de proyecto, precios, metrajes y fechas. Que el ojo los encuentre sin leer todo.',
+    '- La negrita de WhatsApp es UN SOLO asterisco a cada lado: *Los Viñedos*. NUNCA uses dos (**Los Viñedos**): eso es Markdown y WhatsApp lo muestra con los asteriscos a la vista.',
+    '- Usa *negrita* en nombres de proyecto, precios, metrajes y fechas. Que el ojo los encuentre sin leer todo.',
     '- Cierra con UNA sola pregunta o invitación, en su propia línea. Nunca dos preguntas en el mismo mensaje.',
-    '- NUNCA uses ## para títulos, tablas, guiones bajos para subrayar, ni enlaces tipo [texto](url): WhatsApp los muestra tal cual y quedan mal. Los enlaces van pelados, en su propia línea.',
+    '- Nada de Markdown: ni ## para títulos, ni **doble asterisco**, ni tablas, ni enlaces tipo [texto](url). WhatsApp no los interpreta y el cliente ve los símbolos crudos. Los enlaces van pelados, en su propia línea.',
+    '- Para viñetas usa un guión o un emoji al principio de la línea, nunca asteriscos: un asterisco suelto al inicio le desordena la negrita al cliente.',
     '- El emoji ordena, no decora: uno por línea de dato y nada más. Estás vendiendo un lote de decenas de miles de soles, no una promoción.',
   ].join('\n');
 

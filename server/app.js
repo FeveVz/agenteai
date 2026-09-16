@@ -58,6 +58,15 @@ app.get('/api/health', async (_req, res) => {
     base_de_datos: { conectada: false, tablas: {} },
   };
 
+  // Que version esta viva. Vercel inyecta estas variables solo, y sin
+  // ellas confirmar si un cambio llego a produccion es adivinar: el
+  // bundle del cliente lleva hash, pero la funcion del servidor no.
+  const commit = String(process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7);
+  salud.version = {
+    commit: commit || '(local)',
+    desplegado_en: process.env.VERCEL_DEPLOYMENT_ID ? 'vercel' : 'local',
+  };
+
   // Huella del proyecto Supabase al que apunta, para poder confirmar desde
   // afuera que las variables apuntan a donde creemos. No expone el ref completo.
   try {

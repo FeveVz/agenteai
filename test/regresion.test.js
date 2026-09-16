@@ -358,7 +358,8 @@ test('el formato prohíbe el markdown que WhatsApp no entiende', () => {
   const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
   // WhatsApp muestra `## titulo` y `[texto](url)` tal cual: quedan peor que
   // el párrafo corrido que el formato viene a arreglar.
-  assert.match(prompt, /NUNCA uses ## para t[íi]tulos/);
+  assert.match(prompt, /Nada de Markdown/);
+  assert.match(prompt, /##/);
   assert.match(prompt, /\[texto\]\(url\)/);
 });
 
@@ -388,4 +389,14 @@ test('el panel puede guardar el estilo', () => {
     'el PUT tiene que leer estilo_respuesta del body');
   assert.ok(ruta.includes('actualizacion.estilo_respuesta = estilo_respuesta'),
     'el PUT tiene que escribirlo en la base');
+});
+
+test('el formato prohíbe el doble asterisco de Markdown', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  // El modelo escribía "**Inicial**" por reflejo de Markdown y el comprador
+  // veía los asteriscos crudos. Decirle que use *negrita* no alcanzaba:
+  // hay que prohibirle la otra forma con todas las letras.
+  assert.match(prompt, /UN SOLO asterisco/);
+  assert.match(prompt, /NUNCA uses dos/);
+  assert.match(prompt, /Nada de Markdown/);
 });
