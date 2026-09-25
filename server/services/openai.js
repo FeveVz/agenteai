@@ -337,6 +337,12 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
 
       // Solo devolvemos los campos con dato real. Los vacíos se omiten para que
       // el modelo no tenga nada que "completar" por su cuenta.
+      //
+      // Ojo con lo que sigue al final de este case: la herramienta devuelve
+      // un objeto con once campos, y el reflejo del modelo es relatarlos
+      // todos. Una regla del prompt no le gana a un JSON lleno de datos que
+      // llega justo antes de escribir, asi que la instruccion viaja pegada a
+      // los datos.
       const limpios = proyectos.map(p => {
         const salida = { nombre: p.nombre };
         if (p.ubicacion) salida.ubicacion = p.ubicacion;
@@ -368,7 +374,21 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         return salida;
       });
 
-      return { proyectos: limpios, total: limpios.length };
+      return {
+        proyectos: limpios,
+        total: limpios.length,
+        // Esto es lo último que el modelo lee antes de escribir, y por eso
+        // pesa mucho más que la misma regla puesta en el prompt: ahí queda
+        // miles de tokens atrás, compitiendo contra un JSON recién servido.
+        instruccion: limpios.length === 1
+          ? 'Estos son TODOS los datos que hay de este proyecto, no un guión para leer. '
+            + 'Elige DOS O TRES según lo que la persona te dijo y explica por qué le convienen. '
+            + 'El resto guárdalo para cuando pregunte. Cierra con una pregunta que te sirva para '
+            + 'asesorarla mejor, no con la invitación de siempre.'
+          : 'Son ' + limpios.length + ' proyectos. NO los describas todos: menciona los que encajen '
+            + 'con lo que la persona busca, con una línea cada uno, y pregúntale cuál le llama la '
+            + 'atención. Si todavía no sabes qué busca, pregúntaselo antes de listar nada.',
+      };
     }
 
     case 'enviar_datos_pago': {
@@ -750,7 +770,7 @@ function construirSystemPrompt(numeroTelefono, config, nombresProyectos) {
     'FORMATO DEL MENSAJE (esto es WhatsApp en un celular, no un email):',
     '- Separa las ideas en bloques cortos con una línea en blanco entre ellos. Ningún párrafo de más de dos líneas.',
     '- Cuando hables de un proyecto, ábrelo con un emoji y su nombre en *negrita*, solo en esa línea.',
-    '- CUANDO des varios datos juntos —y solo entonces— van uno por línea con su emoji adelante: 📍 ubicación, 📐 área o metraje, 💰 precio, 🏗️ etapa y entrega, ✅ disponibilidad, 🗓️ fechas y visitas, 🚗 movilidad. Para uno o dos datos esto no aplica: van en una frase normal, como los diría una persona.',
+    '- Lo normal es escribir en frases, como una persona. SOLO si das tres o más datos juntos conviene ponerlos uno por línea, cada uno con un emoji que venga al caso. No existe una lista fija de campos que haya que completar: eso convierte cada respuesta en un formulario.',
     '- La negrita de WhatsApp es UN SOLO asterisco a cada lado: *Los Viñedos*. NUNCA uses dos (**Los Viñedos**): eso es Markdown y WhatsApp lo muestra con los asteriscos a la vista.',
     '- Usa *negrita* en nombres de proyecto, precios, metrajes y fechas. Que el ojo los encuentre sin leer todo.',
     '- Cierra con UNA sola pregunta, en su propia línea, y que NO sea la misma que ya hiciste antes en esta conversación. Nunca dos preguntas en el mismo mensaje.',
@@ -810,6 +830,33 @@ La diferencia se nota en el primer mensaje.
 
 Tu objetivo sigue siendo que la persona conozca el proyecto en persona, pero
 se llega conversando, no repitiendo la invitación.
+
+ASÍ SE VE LA DIFERENCIA. Alguien escribe "Quiero más información de Torres de
+Parcona" (es el texto automático de un anuncio, no una consulta detallada).
+
+MAL — esto es un catálogo, y ahí se muere la conversación:
+"🏡 *Urbanización Torres de Parcona*
+📍 Ubicación: 1era cuadra de Av. 28 de Julio
+📐 Área: desde 109 m²
+💰 Precio: desde S/65,000
+🏗️ Entrega inmediata, solo 9 lotes
+✅ Títulos en proceso
+🚗 Movilidad desde puntos céntricos
+¿Te gustaría agendar una visita?"
+
+BIEN — engancha con lo justo y abre la conversación:
+"¡Hola! Qué bueno que te interese Torres de Parcona.
+
+De ese nos quedan *solo 9 lotes*, de 109 m² y con entrega inmediata — o sea
+que puedes empezar a construir apenas cierres.
+
+¿Lo estás viendo para tu casa o más como inversión? Según eso te cuento lo que
+más te conviene."
+
+Mira la diferencia: el segundo da DOS datos en vez de siete, explica por qué
+importan, y termina con una pregunta que sirve para asesorar. El precio, la
+ubicación exacta y los títulos salen después, cuando pregunten o cuando sepas
+qué busca. Eso es asesorar; lo otro es imprimir un folleto.
 
 PROYECTOS DE ${empresaODefecto.toUpperCase()} (los únicos que existen — nunca menciones ni inventes otro):
 ${listaProyectos}

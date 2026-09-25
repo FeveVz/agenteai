@@ -546,3 +546,31 @@ test('las correcciones que viajan en el prompt están acotadas', () => {
   // mensaje del agente sin agregar señal.
   assert.ok(MAX_CORRECCIONES > 0 && MAX_CORRECCIONES <= 10, `son ${MAX_CORRECCIONES}`);
 });
+
+test('el prompt trae un ejemplo, no solo reglas', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  // Dos rondas de reglas en prosa no alcanzaron. Un modelo imita un ejemplo
+  // mucho mejor de lo que obedece una instrucción abstracta.
+  assert.match(prompt, /MAL —/);
+  assert.match(prompt, /BIEN —/);
+  assert.match(prompt, /DOS datos en vez de siete/);
+});
+
+test('el formato ya no enumera los campos a completar', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  // La enumeración "📍 ubicación, 📐 área, 💰 precio, 🏗️ etapa…" era una
+  // plantilla: el modelo la rellenaba entera en cada respuesta.
+  const formato = prompt.slice(prompt.indexOf('FORMATO DEL MENSAJE'));
+  const camposEnFila = /ubicaci[óo]n,\s*📐/.test(formato);
+  assert.ok(!camposEnFila, 'el bloque de formato no puede listar los campos en fila');
+  assert.match(prompt, /No existe una lista fija de campos/);
+});
+
+test('la herramienta de proyectos manda la instrucción junto con los datos', () => {
+  const fuente = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'server', 'services', 'openai.js'), 'utf8');
+  // Una regla del prompt queda miles de tokens atrás; esto llega pegado al
+  // JSON, que es lo último que el modelo lee antes de escribir.
+  assert.match(fuente, /instruccion: limpios\.length === 1/);
+  assert.match(fuente, /no un gui[óo]n para leer/);
+});
