@@ -6,12 +6,13 @@ import TabVisitas from '../components/TabVisitas';
 import TabProyectos from '../components/TabProyectos';
 import TabConfiguracion from '../components/TabConfiguracion';
 import TabConstructoras from '../components/TabConstructoras';
+import TabAprendizaje from '../components/TabAprendizaje';
 import LoginGate from '../components/LoginGate';
 import { cerrarSesion } from '../lib/api';
 import { MARCA } from '../config/marca';
 import {
   IconoMensajes, IconoVisitas, IconoProyectos, IconoConstructoras,
-  IconoConfiguracion, IconoInicio, IconoSalir,
+  IconoConfiguracion, IconoInicio, IconoSalir, IconoAprendizaje,
 } from '../components/ui/Iconos';
 
 /**
@@ -26,6 +27,7 @@ const ZONAS = [
   { id: 'visitas', etiqueta: 'Visitas', Icono: IconoVisitas, resumen: 'Las visitas agendadas, en lista y en calendario' },
   { id: 'proyectos', etiqueta: 'Proyectos', Icono: IconoProyectos, resumen: 'El catálogo. Solo habla de lo que esté acá' },
   { id: 'constructoras', etiqueta: 'Constructoras', Icono: IconoConstructoras, resumen: 'Las empresas dueñas y sus cuentas de pago' },
+  { id: 'aprendizaje', etiqueta: 'Aprendizaje', Icono: IconoAprendizaje, resumen: 'Qué le faltó saber al agente y cómo enseñarle' },
   { id: 'configuracion', etiqueta: 'Configuración', Icono: IconoConfiguracion, resumen: 'Datos de la empresa, horarios, reglas y estilo' },
 ];
 
@@ -137,6 +139,7 @@ function Panel() {
             {zonaActiva === 'visitas' && <TabVisitas />}
             {zonaActiva === 'proyectos' && <TabProyectos />}
             {zonaActiva === 'constructoras' && <TabConstructoras />}
+            {zonaActiva === 'aprendizaje' && <TabAprendizaje />}
             {zonaActiva === 'configuracion' && <TabConfiguracion />}
           </main>
         </div>

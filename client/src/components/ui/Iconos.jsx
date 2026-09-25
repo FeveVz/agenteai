@@ -89,3 +89,14 @@ export function IconoSalir(props) {
     </svg>
   );
 }
+
+/** Aprendizaje: un cerebro simplificado, en la misma familia de trazo. */
+export function IconoAprendizaje(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 5a3 3 0 0 0-5.9-.7A2.8 2.8 0 0 0 4 7a2.8 2.8 0 0 0 .6 1.7A2.9 2.9 0 0 0 4 13a2.9 2.9 0 0 0 1 2.2A2.8 2.8 0 0 0 7.5 19 2.9 2.9 0 0 0 12 17.5Z" />
+      <path d="M12 5a3 3 0 0 1 5.9-.7A2.8 2.8 0 0 1 20 7a2.8 2.8 0 0 1-.6 1.7A2.9 2.9 0 0 1 20 13a2.9 2.9 0 0 1-1 2.2A2.8 2.8 0 0 1 16.5 19 2.9 2.9 0 0 1 12 17.5Z" />
+      <path d="M12 5v12.5" />
+    </svg>
+  );
+}

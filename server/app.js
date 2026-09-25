@@ -9,6 +9,7 @@ const proyectosRouter = require('./routes/proyectos');
 const configuracionRouter = require('./routes/configuracion');
 const desarrolladorasRouter = require('./routes/desarrolladoras');
 const { router: archivosRouter } = require('./routes/archivos');
+const aprendizajeRouter = require('./routes/aprendizaje');
 const authRouter = require('./routes/auth');
 const { router: agendaRouter } = require('./routes/agenda');
 const { requiereAuth, proteccionActiva } = require('./middleware/auth');
@@ -132,6 +133,7 @@ app.use('/api/proyectos', requiereAuth, proyectosRouter);
 app.use('/api/configuracion', requiereAuth, configuracionRouter);
 app.use('/api/desarrolladoras', requiereAuth, desarrolladorasRouter);
 app.use('/api/archivos', requiereAuth, archivosRouter);
+app.use('/api/aprendizaje', requiereAuth, aprendizajeRouter);
 
 const distPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(distPath));

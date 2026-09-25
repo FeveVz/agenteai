@@ -502,3 +502,47 @@ test('el prompt le exige contestar lo que le preguntaron y no inventar', () => {
   assert.match(prompt, /etapas/, 'las etapas tienen que estar en la lista de lo que no se inventa');
   assert.match(prompt, /lo confirma un asesor/);
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  Aprendizaje
+//
+//  El modelo no aprende: cada mensaje arranca de cero. Lo que se
+//  acumula acá es lo que se le devuelve en el prompt la próxima vez.
+// ═══════════════════════════════════════════════════════════════════
+
+const { formatearConversaciones, MAX_CORRECCIONES } = require('../server/services/aprendizaje');
+
+test('las conversaciones se agrupan por número antes de analizarlas', () => {
+  const texto = formatearConversaciones([
+    { numero_telefono: '+51900000001', remitente: 'usuario', contenido_mensaje: 'Hola' },
+    { numero_telefono: '+51900000002', remitente: 'usuario', contenido_mensaje: 'Buenas' },
+    { numero_telefono: '+51900000001', remitente: 'asistente', contenido_mensaje: 'Qué tal' },
+  ]);
+
+  // Sin agrupar, el modelo vería un solo hilo mezclado y contaría mal
+  // cuántas personas distintas preguntaron lo mismo.
+  assert.match(texto, /Conversación con \+51900000001/);
+  assert.match(texto, /Conversación con \+51900000002/);
+  assert.ok(texto.indexOf('Qué tal') < texto.indexOf('Conversación con +51900000002'),
+    'los mensajes de un mismo número van juntos');
+  assert.match(texto, /COMPRADOR: Hola/);
+  assert.match(texto, /AGENTE: Qué tal/);
+});
+
+test('un mensaje larguísimo no infla el análisis', () => {
+  const texto = formatearConversaciones([
+    { numero_telefono: '+51900000001', remitente: 'usuario', contenido_mensaje: 'x'.repeat(5000) },
+  ]);
+  assert.ok(texto.length < 1200, `quedó en ${texto.length} caracteres`);
+});
+
+test('el análisis aguanta una conversación vacía', () => {
+  assert.doesNotThrow(() => formatearConversaciones([]));
+  assert.strictEqual(formatearConversaciones([]), '');
+});
+
+test('las correcciones que viajan en el prompt están acotadas', () => {
+  // Son ejemplos, no un manual: pasado cierto punto ocupan tokens en cada
+  // mensaje del agente sin agregar señal.
+  assert.ok(MAX_CORRECCIONES > 0 && MAX_CORRECCIONES <= 10, `son ${MAX_CORRECCIONES}`);
+});

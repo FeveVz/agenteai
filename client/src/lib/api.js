@@ -108,3 +108,18 @@ export const actualizarDesarrolladora = ({ id, ...datos }) => pedirJSON(`/desarr
 
 /** Pide un token de un solo uso para subir una imagen directo a Supabase Storage. */
 export const pedirFirmaSubida = (datos) => pedirJSON('/archivos/firma', 'POST', datos);
+
+// ── Aprendizaje ───────────────────────────────────────────────────────────────
+// El modelo no aprende solo: lo que se acumula acá es lo que se le devuelve
+// en el prompt de la siguiente conversación.
+
+export const obtenerAnalisis = () => pedir('/aprendizaje/analisis');
+
+/** Corre un análisis nuevo. Es lo único del panel que gasta dinero. */
+export const analizarConversaciones = (desde = 0) => pedirJSON('/aprendizaje/analizar', 'POST', { desde });
+
+export const obtenerCorrecciones = () => pedir('/aprendizaje/correcciones');
+export const crearCorreccion = (datos) => pedirJSON('/aprendizaje/correcciones', 'POST', datos);
+export const actualizarCorreccion = ({ id, ...datos }) => pedirJSON(`/aprendizaje/correcciones/${id}`, 'PUT', datos);
+
+export const obtenerCompradores = () => pedir('/aprendizaje/compradores');

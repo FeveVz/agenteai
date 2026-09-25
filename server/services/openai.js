@@ -9,6 +9,7 @@ const {
 } = require('../utils/fechas');
 const { buscarPorNombre, normalizar } = require('../utils/proyectos');
 const { limpiarWhatsApp } = require('../utils/formatoWhatsApp');
+const { obtenerCorreccionesParaPrompt, obtenerMemoriaComprador } = require('./aprendizaje');
 const { crearEnlaceAgenda } = require('../routes/agenda');
 const { enviarAlertaVisita } = require('./email');
 
@@ -846,8 +847,19 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
   const openai = obtenerClienteOpenAI();
   const config = configEmpresa || {};
 
-  const nombresProyectos = await obtenerNombresProyectos();
-  const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos);
+  // Lo aprendido se agrega DESPUES del prompt base, no adentro: asi
+  // construirSystemPrompt sigue siendo sincrona y se puede probar sin base de
+  // datos, y ademas lo ultimo que lee el modelo es lo que mas peso tiene.
+  //
+  // Las tres lecturas van juntas porque ninguna depende de la otra y son lo
+  // primero que ocurre en cada mensaje: encadenarlas le sumaria latencia al
+  // turno, que ya pelea contra el limite de 9 segundos de Twilio.
+  const [nombresProyectos, correcciones, memoria] = await Promise.all([
+    obtenerNombresProyectos(),
+    obtenerCorreccionesParaPrompt(),
+    obtenerMemoriaComprador(numeroTelefono),
+  ]);
+  const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos) + memoria + correcciones;
 
   // Efectos que no viajan en el texto: las herramientas lo van llenando y el
   // webhook lo usa para adjuntar media al mensaje de WhatsApp.
@@ -925,4 +937,4 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
 // construirSystemPrompt se exporta para poder probarlo: el respaldo del
 // nombre del agente es justo el tipo de detalle que se rompe en silencio
 // y termina presentando a una clienta con el nombre de otra.
-module.exports = { procesarMensajeConIA, construirSystemPrompt };
+module.exports = { procesarMensajeConIA, construirSystemPrompt, obtenerClienteOpenAI };

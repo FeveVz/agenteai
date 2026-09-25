@@ -110,7 +110,8 @@ async function main() {
 
   // ── Verificación ───────────────────────────────────────────────────
   console.log('\nVerificando:');
-  const TABLAS = ['configuracion_agencia', 'visitas', 'proyectos', 'mensajes_whatsapp', 'enlaces_agenda', 'desarrolladoras'];
+  const TABLAS = ['configuracion_agencia', 'visitas', 'proyectos', 'mensajes_whatsapp',
+    'enlaces_agenda', 'desarrolladoras', 'correcciones', 'compradores', 'analisis'];
   const tablas = await ejecutar(
     `select table_name from information_schema.tables where table_schema='public' and table_name in (${TABLAS.map(t => `'${t}'`).join(',')})`
   );

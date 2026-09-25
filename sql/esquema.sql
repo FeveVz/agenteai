@@ -207,19 +207,67 @@ END $$;
 -- estas tablas. El backend entra con la service_role key, que ignora
 -- RLS, por lo que sigue funcionando igual. Es la postura segura para
 -- tablas que guardan conversaciones y teléfonos de clientes.
+-- ── Aprendizaje ──────────────────────────────────────────────────
+-- El modelo no aprende solo: cada mensaje arranca de cero y sus pesos no
+-- cambian con el uso. Lo unico que persiste entre conversaciones es lo que
+-- nosotros le pongamos en el prompt. Estas tres tablas son ese lugar.
+
+-- Cuando la clienta ve una respuesta mala y escribe la que correspondia.
+-- Las activas viajan en el prompt como ejemplos.
+CREATE TABLE IF NOT EXISTS correcciones (
+  id BIGSERIAL PRIMARY KEY,
+  numero_telefono TEXT,
+  dijo TEXT NOT NULL,           -- lo que el agente respondio
+  debio_decir TEXT NOT NULL,    -- lo que tenia que haber respondido
+  nota TEXT,                    -- por que estuvo mal, opcional
+  activa BOOLEAN DEFAULT TRUE,  -- se desactiva sin perder el historial
+  creado_en TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_correcciones_activas
+  ON correcciones (activa, creado_en DESC);
+
+-- Lo que sabemos de cada persona mas alla del chat en curso. Dentro de una
+-- conversacion el agente ya ve los ultimos 20 mensajes; esto es para cuando
+-- alguien vuelve semanas despues.
+CREATE TABLE IF NOT EXISTS compradores (
+  numero_telefono TEXT PRIMARY KEY,
+  nombre TEXT,
+  resumen TEXT,                 -- que busca, presupuesto, que proyectos vio
+  actualizado_en TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- El informe de huecos. Se guarda en vez de recalcularse: cada corrida
+-- cuesta una llamada al modelo y el panel se abre mucho mas seguido.
+CREATE TABLE IF NOT EXISTS analisis (
+  id BIGSERIAL PRIMARY KEY,
+  generado_en TIMESTAMPTZ DEFAULT NOW(),
+  mensajes_analizados INTEGER,
+  hasta_mensaje BIGINT,         -- ultimo id incluido, para no repetir trabajo
+  resultado JSONB NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_analisis_reciente
+  ON analisis (generado_en DESC);
+
+
 ALTER TABLE mensajes_whatsapp     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visitas               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE proyectos             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE configuracion_agencia ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enlaces_agenda        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE desarrolladoras       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE correcciones         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE compradores          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE analisis             ENABLE ROW LEVEL SECURITY;
 
 
 -- ── Verificación ─────────────────────────────────────────────────
--- Las seis tablas tienen que aparecer acá. Si falta alguna, el
+-- Las nueve tablas tienen que aparecer acá. Si falta alguna, el
 -- despliegue va a fallar de formas raras en vez de avisar.
 SELECT tablename
 FROM pg_tables
 WHERE schemaname = 'public'
-  AND tablename IN ('mensajes_whatsapp', 'visitas', 'proyectos', 'configuracion_agencia', 'enlaces_agenda', 'desarrolladoras')
+  AND tablename IN ('mensajes_whatsapp', 'visitas', 'proyectos', 'configuracion_agencia',
+                    'enlaces_agenda', 'desarrolladoras', 'correcciones', 'compradores', 'analisis')
 ORDER BY tablename;
