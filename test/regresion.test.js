@@ -574,3 +574,111 @@ test('la herramienta de proyectos manda la instrucción junto con los datos', ()
   assert.match(fuente, /instruccion: limpios\.length === 1/);
   assert.match(fuente, /no un gui[óo]n para leer/);
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  Estado de la conversación
+//
+//  Todas las frases de acá son reales: las escribió el agente en
+//  pruebas contra el modelo. La primera versión del detector buscaba
+//  "agendar" y el modelo decía "agendemos", así que no disparaba
+//  nunca y seguía invitando en todos los turnos.
+// ═══════════════════════════════════════════════════════════════════
+
+const { proponeVisita, aceptoVisita, instruccionSegunHistorial } = require('../server/utils/conversacion');
+
+test('reconoce la invitación a visitar, esté como esté conjugada', () => {
+  const reales = [
+    '¿Te gustaría agendar una visita para conocer más?',
+    '¿Te gustaría que agendemos una visita para que lo veas en persona?',
+    '¿Te gustaría que coordinemos una visita para que puedas conocer el lugar?',
+    '¿Qué te parece si agendamos una visita para que conozcas el proyecto?',
+    'Te invito a agendar una visita al proyecto.',
+    'Podríamos programar una visita cuando te quede cómodo.',
+    'Para agendar tu visita, ¿te mando el enlace?',
+  ];
+  for (const f of reales) {
+    assert.ok(proponeVisita(f), `no reconoció: ${f}`);
+  }
+});
+
+test('no confunde cualquier mención con una invitación', () => {
+  for (const f of [
+    'La visita dura unos 40 minutos.',
+    '¿Te mando fotos del proyecto?',
+    'Los lotes están con entrega inmediata.',
+  ]) {
+    assert.ok(!proponeVisita(f), `marcó de más: ${f}`);
+  }
+});
+
+test('un "sí" suelto cuenta como aceptar', () => {
+  for (const f of ['Sí', 'sí, dale', 'Dale', 'ok', 'Claro', 'mándame el enlace']) {
+    assert.ok(aceptoVisita(f), `no lo tomó como sí: ${f}`);
+  }
+  assert.ok(!aceptoVisita('no por ahora'));
+  assert.ok(!aceptoVisita('¿cuánto cuesta?'));
+});
+
+test('avisa cuando ya invitó y no le dijeron que sí', () => {
+  const instruccion = instruccionSegunHistorial([
+    { remitente: 'usuario', contenido_mensaje: 'hola' },
+    { remitente: 'asistente', contenido_mensaje: '¿Te gustaría que agendemos una visita?' },
+    { remitente: 'usuario', contenido_mensaje: '¿y a crédito?' },
+  ]);
+  assert.match(instruccion, /Ya le propusiste agendar una visita una vez/);
+  assert.match(instruccion, /NO se lo vuelvas a proponer/);
+});
+
+test('si aceptó, deja de frenarlo', () => {
+  const instruccion = instruccionSegunHistorial([
+    { remitente: 'asistente', contenido_mensaje: '¿Te gustaría que agendemos una visita?' },
+    { remitente: 'usuario', contenido_mensaje: 'Sí' },
+  ]);
+  assert.doesNotMatch(instruccion, /NO se lo vuelvas a proponer/);
+});
+
+test('recoge lo que la persona contó de sí misma', () => {
+  const instruccion = instruccionSegunHistorial([
+    { remitente: 'usuario', contenido_mensaje: 'Es para vivir, con mi familia' },
+  ]);
+  assert.match(instruccion, /su familia/);
+  assert.match(instruccion, /para vivir/);
+});
+
+test('sin historial no inventa instrucciones', () => {
+  assert.strictEqual(instruccionSegunHistorial([]), '');
+  assert.strictEqual(instruccionSegunHistorial(undefined), '');
+});
+
+test('ningún archivo del servidor tiene caracteres de control', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const raiz = path.join(__dirname, '..', 'server');
+
+  // Esto pasó de verdad, dos veces: una barra invertida perdida en el camino
+  // convirtió un `\b` de una expresión regular en un carácter de retroceso
+  // real. El archivo se veía bien en pantalla y la regex no coincidía nunca,
+  // así que el agente seguía repitiendo la invitación sin que se notara por qué.
+  const archivos = [];
+  (function recorrer(dir) {
+    for (const entrada of fs.readdirSync(dir)) {
+      const p = path.join(dir, entrada);
+      if (fs.statSync(p).isDirectory()) recorrer(p);
+      else if (p.endsWith('.js')) archivos.push(p);
+    }
+  })(raiz);
+
+  const sospechosos = [];
+  for (const archivo of archivos) {
+    const contenido = fs.readFileSync(archivo, 'utf8');
+    // Se permiten salto de línea, retorno y tabulación; nada más.
+    const match = contenido.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/);
+    if (match) {
+      const pos = contenido.indexOf(match[0]);
+      const linea = contenido.slice(0, pos).split('\n').length;
+      sospechosos.push(`${path.relative(raiz, archivo)}:${linea} (U+${match[0].codePointAt(0).toString(16).padStart(4, '0')})`);
+    }
+  }
+
+  assert.deepStrictEqual(sospechosos, [], 'caracteres de control:\n  ' + sospechosos.join('\n  '));
+});

@@ -10,6 +10,7 @@ const {
 const { buscarPorNombre, normalizar } = require('../utils/proyectos');
 const { limpiarWhatsApp } = require('../utils/formatoWhatsApp');
 const { obtenerCorreccionesParaPrompt, obtenerMemoriaComprador } = require('./aprendizaje');
+const { instruccionSegunHistorial } = require('../utils/conversacion');
 const { crearEnlaceAgenda } = require('../routes/agenda');
 const { enviarAlertaVisita } = require('./email');
 
@@ -362,6 +363,18 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
           salida.fotos_disponibles = fotos.length;
           salida.fotos_de = fotos.map(f => f.descripcion).filter(Boolean);
         }
+        // Decir lo que NO hay, como dato y no como instruccion. Preguntado
+        // por la etapa, el modelo contestaba "la etapa de entrega inmediata"
+        // usando estado_comercial: para el, un campo parecido respondia la
+        // pregunta. Las instrucciones de no hacerlo no alcanzaron; un campo
+        // que dice explicitamente que ese dato no existe, si.
+        salida.datos_que_no_tengo = [
+          'etapa o fase de la urbanizacion',
+          'numero, manzana o ubicacion exacta del lote dentro del proyecto',
+          'orientacion del lote',
+          'cualquier cosa que no este en los campos de arriba',
+        ];
+
         if (!p.entrega_titulo) {
           salida.nota_titulo = 'No hay dato cargado sobre la entrega del título de este proyecto. NO afirmes que ya tiene título: dile que un asesor le confirma la fecha exacta.';
         }
@@ -382,6 +395,12 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         // miles de tokens atrás, compitiendo contra un JSON recién servido.
         instruccion: limpios.length === 1
           ? 'Estos son TODOS los datos que hay de este proyecto, no un guión para leer. '
+            + 'Lo que no esté en estos campos, NO lo tienes: si te preguntan la etapa, el número de lote, '
+            + 'las amenidades o cualquier cosa que no aparezca acá, dilo derecho y ofrece que un asesor lo confirme. '
+            + 'No uses un campo parecido como si respondiera la pregunta. '
+            + 'En particular: "etapa" o "fase" de la urbanizacion NO es lo mismo que "estado comercial". '
+            + 'Si preguntan en que etapa o fase esta un lote, o que numero o manzana es, eso no lo tienes: '
+            + 'decilo claro y ofrece que un asesor lo confirme. Responder "la etapa de entrega inmediata" es inventar. '
             + 'Elige DOS O TRES según lo que la persona te dijo y explica por qué le convienen. '
             + 'El resto guárdalo para cuando pregunte. Cierra con una pregunta que te sirva para '
             + 'asesorarla mejor, no con la invitación de siempre.'
@@ -871,7 +890,7 @@ El número de WhatsApp del cliente es: ${numeroTelefono}${formatoTexto}
 
 Reglas importantes:
 - MENSAJES CORTOS: máximo 120 palabras, y el PRIMERO de la conversación no pasa de 60. Casi todos los que escriben llegan de un anuncio con un texto ya armado ("Quiero más información de X"): eso no es una pregunta detallada, es alguien que recién asoma. Respondérle con la ficha entera lo espanta. Si te piden todos los proyectos, menciona los 3-4 más relevantes y ofrece ampliar.
-- DATOS DE PROYECTOS: antes de dar ubicación, precio, área o financiamiento de un proyecto, SIEMPRE llama a consultar_proyectos. Si el proyecto viene con "sin_detalle_cargado", NO inventes nada: ofrece que un asesor le dé el detalle exacto y propón agendar la visita.
+- DATOS DE PROYECTOS: antes de decir CUALQUIER cosa concreta de un proyecto —ubicación, precio, área, financiamiento, amenidades, áreas verdes, servicios, seguridad, cuántos lotes quedan, lo que sea— SIEMPRE llama a consultar_proyectos, aunque creas recordarlo de un mensaje anterior. Lo que no venga en esa respuesta NO existe: no lo completes con lo que sabes de otro proyecto ni con lo que suele tener un condominio. Si el proyecto viene con "sin_detalle_cargado", NO inventes nada: ofrece que un asesor le dé el detalle exacto y propón agendar la visita.
 - NUNCA inventes NINGÚN dato: ni precios, metrajes, cuotas, plazos, disponibilidad, etapas, numeración de lotes ni orientación. Si te preguntan algo que no está en el catálogo, di con todas las letras que eso lo confirma un asesor. Es una compra de decenas de miles de soles: un dato inventado le cuesta dinero al cliente y la credibilidad a la empresa. Decir "no lo tengo a la mano" no es un fracaso; inventarlo sí.
 - TÍTULO DE PROPIEDAD: no todos los proyectos tienen el título entregado hoy. La mayoría está en PRE-VENTA y el título llega más adelante. Nunca digas que un proyecto "ya tiene título" salvo que su campo entrega_titulo lo diga explícitamente. Si no hay dato, di que un asesor confirma la fecha exacta.
 - LA PRE-VENTA ES UNA VENTAJA, preséntala así con naturalidad: es la etapa de precio más bajo de todo el proyecto, con el mayor potencial de revalorización, y permite elegir entre los mejores lotes antes de que se vendan. Además el respaldo está desde el día uno: partida registral, empresa inscrita y contrato firmado. Nunca la presentes como una limitación ni pidas disculpas por ella, pero tampoco la disfraces: si preguntan cuándo llega el título, dilo con claridad.
@@ -906,7 +925,12 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
     obtenerCorreccionesParaPrompt(),
     obtenerMemoriaComprador(numeroTelefono),
   ]);
-  const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos) + memoria + correcciones;
+  // El estado de la conversacion va al final, que es lo que el modelo lee
+  // mas cerca de escribir. Probado contra el modelo real: la regla estatica
+  // de no repetir la invitacion perdia contra el objetivo declarado de
+  // llevar a una visita, y el agente invitaba en los tres turnos seguidos.
+  const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos)
+    + memoria + correcciones + instruccionSegunHistorial(historial);
 
   // Efectos que no viajan en el texto: las herramientas lo van llenando y el
   // webhook lo usa para adjuntar media al mensaje de WhatsApp.
