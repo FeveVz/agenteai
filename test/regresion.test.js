@@ -400,3 +400,105 @@ test('el formato prohíbe el doble asterisco de Markdown', () => {
   assert.match(prompt, /NUNCA uses dos/);
   assert.match(prompt, /Nada de Markdown/);
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  Formato de salida hacia WhatsApp
+//
+//  Los casos de acá salieron de conversaciones reales: son mensajes
+//  que compradores de Pamela recibieron con los asteriscos y los
+//  corchetes a la vista. Al prompt se le pidió dos veces que no usara
+//  Markdown y siguió haciéndolo, así que el resultado se garantiza en
+//  código.
+// ═══════════════════════════════════════════════════════════════════
+
+const { limpiarWhatsApp } = require('../server/utils/formatoWhatsApp');
+
+test('la negrita de Markdown pasa a la de WhatsApp', () => {
+  assert.strictEqual(limpiarWhatsApp('📍 **Ubicación:** Parcona'), '📍 *Ubicación:* Parcona');
+  assert.strictEqual(limpiarWhatsApp('***muy fuerte***'), '*muy fuerte*');
+  assert.strictEqual(limpiarWhatsApp('__cursiva__'), '_cursiva_');
+});
+
+test('los enlaces con texto se abren, conservando la frase', () => {
+  assert.strictEqual(
+    limpiarWhatsApp('[Ver ubicación en el mapa](https://maps.app.goo.gl/jQaFKg)'),
+    'Ver ubicación en el mapa: https://maps.app.goo.gl/jQaFKg',
+  );
+  // Sin texto no hay nada que conservar: queda la URL sola.
+  assert.strictEqual(limpiarWhatsApp('[](https://x.com/a)'), 'https://x.com/a');
+});
+
+test('no queda ningún resto de Markdown en un mensaje real', () => {
+  const real = [
+    '🏡 *Urbanización Torres de Parcona*',
+    '',
+    '📍 **Ubicación:** 1era cuadra de Av. 28 de Julio',
+    '📐 **Área desde:** 109 m²',
+    '* Agua, luz y desagüe instalados',
+    '',
+    '## Financiamiento',
+    '[Ver ubicación en mapa](https://maps.app.goo.gl/jQaFKg)',
+  ].join('\n');
+
+  const limpio = limpiarWhatsApp(real);
+  assert.doesNotMatch(limpio, /\*\*/, 'no puede quedar doble asterisco');
+  assert.doesNotMatch(limpio, /\[[^\]]*\]\(/, 'no puede quedar un enlace de Markdown');
+  assert.doesNotMatch(limpio, /^#{1,6} /m, 'no puede quedar un título de Markdown');
+  assert.doesNotMatch(limpio, /^\* /m, 'una viñeta con asterisco abre una negrita');
+  assert.match(limpio, /\*Ubicación:\*/);
+  assert.match(limpio, /• Agua, luz/);
+  assert.match(limpio, /\*Financiamiento\*/);
+});
+
+test('un asterisco impar no deja el resto del mensaje en negrita', () => {
+  const r = limpiarWhatsApp('Precio *S/65,000 y algo más');
+  assert.strictEqual((r.match(/\*/g) || []).length % 2, 0);
+});
+
+test('no toca lo que va dentro de un bloque de código', () => {
+  const r = limpiarWhatsApp('Copia esto:\n```\n**no_tocar** [a](http://b.com)\n```');
+  assert.match(r, /\*\*no_tocar\*\*/);
+  assert.match(r, /\[a\]\(http:\/\/b\.com\)/);
+});
+
+test('recorta el aire de más sin pegar las líneas', () => {
+  assert.strictEqual(limpiarWhatsApp('a\n\n\n\n\nb'), 'a\n\nb');
+  assert.strictEqual(limpiarWhatsApp('a\nb'), 'a\nb');
+});
+
+test('un texto ya limpio no se altera', () => {
+  const ok = '🏡 *Torres de Parcona*\n\n📍 Parcona, Ica\n\n¿Lo ves para vivir o para invertir?';
+  assert.strictEqual(limpiarWhatsApp(ok), ok);
+});
+
+test('aguanta valores que no son texto', () => {
+  for (const v of [null, undefined, '', 123]) {
+    assert.doesNotThrow(() => limpiarWhatsApp(v));
+  }
+});
+
+test('el prompt le prohíbe soltar la ficha completa de entrada', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  // En conversaciones reales el agente recitaba los siete campos en el
+  // primer mensaje y la mitad de los chats morían ahí mismo.
+  assert.match(prompt, /NO SUELTES LA FICHA COMPLETA/);
+  assert.match(prompt, /DOS O TRES datos/);
+  assert.match(prompt, /no pasa de 60/, 'el primer mensaje necesita su propio límite');
+});
+
+test('el prompt le prohíbe repetir la misma pregunta', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  // El cierre "¿te gustaría agendar una visita?" apareció seis veces casi
+  // idéntico en las conversaciones reales. Es el tic que lo delata.
+  assert.match(prompt, /NUNCA REPITAS UNA PREGUNTA QUE YA HICISTE/);
+  assert.match(prompt, /que NO sea la misma que ya hiciste/);
+});
+
+test('el prompt le exige contestar lo que le preguntaron y no inventar', () => {
+  const prompt = construirSystemPrompt('+51900000000', CONFIG_BASE, []);
+  // Un comprador preguntó en qué etapa estaban los lotes; el agente
+  // respondió con el estado de entrega y después se inventó "primera etapa".
+  assert.match(prompt, /PRIMERO CONTESTA LO QUE TE PREGUNTARON/);
+  assert.match(prompt, /etapas/, 'las etapas tienen que estar en la lista de lo que no se inventa');
+  assert.match(prompt, /lo confirma un asesor/);
+});
