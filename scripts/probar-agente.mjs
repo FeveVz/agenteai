@@ -28,11 +28,15 @@ const TELEFONO = '+51900000001';   // no existe: no ensucia conversaciones reale
 
 // El guión reproduce lo que hace la gente de verdad: el primer mensaje es el
 // texto automático del anuncio, no una consulta redactada.
+// Los turnos 3 a 6 son las cuatro preguntas que el agente falló con
+// compradores reales, y que Pamela tuvo que corregir a mano en el panel.
 const GUION = [
   '¡Hola! Quiero más información de las Urbanización Torres de Parcona',
   'Es para vivir, con mi familia',
-  '¿Y a crédito cómo sería?',
   '¿En qué etapa de la urbanización están esos lotes?',
+  '¿Trabajan con Techo Propio?',
+  '¿Con cuánto puedo entrar?',
+  'Ok voy a conversar con mi familia',
 ];
 
 function separador(t) {

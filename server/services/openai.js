@@ -368,8 +368,12 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         // usando estado_comercial: para el, un campo parecido respondia la
         // pregunta. Las instrucciones de no hacerlo no alcanzaron; un campo
         // que dice explicitamente que ese dato no existe, si.
+        const hablaDeEtapa = /\betapas?\b|\bfases?\b/i.test(
+          [p.estado_comercial, p.descripcion, p.caracteristicas].filter(Boolean).join(' '),
+        );
+
         salida.datos_que_no_tengo = [
-          'etapa o fase de la urbanizacion',
+          ...(hablaDeEtapa ? [] : ['etapa o fase de la urbanizacion']),
           'numero, manzana o ubicacion exacta del lote dentro del proyecto',
           'orientacion del lote',
           'cualquier cosa que no este en los campos de arriba',
@@ -387,6 +391,23 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         return salida;
       });
 
+      // Un lote se vende mirandolo. La instruccion de mandar fotos estaba en
+      // el prompt desde el principio y el modelo no la ejecutaba nunca; va acá,
+      // con el numero de fotos que realmente hay, que es lo que sí lee.
+      const sinEtapa = limpios.some(x => (x.datos_que_no_tengo || []).includes('etapa o fase de la urbanizacion'));
+      const avisoEtapa = sinEtapa
+        ? 'En particular: "etapa" o "fase" de la urbanizacion NO es lo mismo que "estado comercial". '
+          + 'Si preguntan en que etapa o fase esta un lote, eso no lo tienes: dilo claro y ofrece que un '
+          + 'asesor lo confirme. Responder "la etapa de entrega inmediata" es inventar. '
+        : '';
+
+      const conFotos = limpios.filter(x => x.fotos_disponibles > 0);
+      const avisoFotos = conFotos.length === 1
+        ? ' Hay ' + conFotos[0].fotos_disponibles + ' foto(s) cargadas de ' + conFotos[0].nombre
+          + '. Si todavia no le mandaste ninguna, mandalas ahora con enviar_fotos_proyecto: '
+          + 'ver el terreno mueve mucho mas que leer la ficha. Nunca describas una foto sin enviarla.'
+        : '';
+
       return {
         proyectos: limpios,
         total: limpios.length,
@@ -395,15 +416,13 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         // miles de tokens atrás, compitiendo contra un JSON recién servido.
         instruccion: limpios.length === 1
           ? 'Estos son TODOS los datos que hay de este proyecto, no un guión para leer. '
-            + 'Lo que no esté en estos campos, NO lo tienes: si te preguntan la etapa, el número de lote, '
+            + 'Lo que no esté en estos campos, NO lo tienes: si te preguntan el número de lote, '
             + 'las amenidades o cualquier cosa que no aparezca acá, dilo derecho y ofrece que un asesor lo confirme. '
             + 'No uses un campo parecido como si respondiera la pregunta. '
-            + 'En particular: "etapa" o "fase" de la urbanizacion NO es lo mismo que "estado comercial". '
-            + 'Si preguntan en que etapa o fase esta un lote, o que numero o manzana es, eso no lo tienes: '
-            + 'decilo claro y ofrece que un asesor lo confirme. Responder "la etapa de entrega inmediata" es inventar. '
+            + avisoEtapa
             + 'Elige DOS O TRES según lo que la persona te dijo y explica por qué le convienen. '
             + 'El resto guárdalo para cuando pregunte. Cierra con una pregunta que te sirva para '
-            + 'asesorarla mejor, no con la invitación de siempre.'
+            + 'asesorarla mejor, no con la invitación de siempre.' + avisoFotos
           : 'Son ' + limpios.length + ' proyectos. NO los describas todos: menciona los que encajen '
             + 'con lo que la persona busca, con una línea cada uno, y pregúntale cuál le llama la '
             + 'atención. Si todavía no sabes qué busca, pregúntaselo antes de listar nada.',
@@ -930,7 +949,7 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
   // de no repetir la invitacion perdia contra el objetivo declarado de
   // llevar a una visita, y el agente invitaba en los tres turnos seguidos.
   const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos)
-    + memoria + correcciones + instruccionSegunHistorial(historial);
+    + memoria + correcciones + instruccionSegunHistorial(historial, mensajeUsuario);
 
   // Efectos que no viajan en el texto: las herramientas lo van llenando y el
   // webhook lo usa para adjuntar media al mensaje de WhatsApp.

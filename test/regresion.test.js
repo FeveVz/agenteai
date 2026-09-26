@@ -612,11 +612,31 @@ test('no confunde cualquier mención con una invitación', () => {
 });
 
 test('un "sí" suelto cuenta como aceptar', () => {
-  for (const f of ['Sí', 'sí, dale', 'Dale', 'ok', 'Claro', 'mándame el enlace']) {
+  for (const f of ['Sí', 'sí, dale', 'Dale', 'ok', 'Claro', 'mándame el enlace',
+    'dale pues', 'Si llamame', 'sí, cuándo podemos ir']) {
     assert.ok(aceptoVisita(f), `no lo tomó como sí: ${f}`);
   }
   assert.ok(!aceptoVisita('no por ahora'));
   assert.ok(!aceptoVisita('¿cuánto cuesta?'));
+});
+
+// Los tres primeros salieron del tráfico real y rompieron el freno a la
+// insistencia: bastaba uno para que la conversación quedara marcada como
+// aceptada y el agente invitara a visitar en todos los turnos que siguieran.
+// En una conversación de 69 mensajes invitó 54 veces.
+test('una pregunta que empieza con "ya" no es un sí', () => {
+  for (const f of ['Ya tienen título?', 'ya tiene luz ?', 'Ok foto',
+    'Ya tienen titulo', 'si me puedes decir el precio',
+    'Ok pero cuánto cuesta el metro cuadrado']) {
+    assert.ok(!aceptoVisita(f), `lo tomó como un sí: ${f}`);
+  }
+});
+
+test('despedirse no es aceptar', () => {
+  for (const f of ['Ok voy a conversar con mi familia', 'dale, lo voy a pensar',
+    'ya, lo consulto con mi esposa']) {
+    assert.ok(!aceptoVisita(f), `lo tomó como un sí: ${f}`);
+  }
 });
 
 test('avisa cuando ya invitó y no le dijeron que sí', () => {
@@ -626,7 +646,21 @@ test('avisa cuando ya invitó y no le dijeron que sí', () => {
     { remitente: 'usuario', contenido_mensaje: '¿y a crédito?' },
   ]);
   assert.match(instruccion, /Ya le propusiste agendar una visita una vez/);
-  assert.match(instruccion, /NO se lo vuelvas a proponer/);
+  assert.match(instruccion, /NO vuelvas a hacerle la misma pregunta/);
+  // Medido en producción: 9 invitaciones en un día, 0 enlaces de calendario.
+  // Repreguntar no convierte; el enlace no le pide una respuesta, le pide un clic.
+  assert.match(instruccion, /enviar_link_agenda/);
+});
+
+test('si ya mandó el enlace, deja de empujar la visita', () => {
+  const instruccion = instruccionSegunHistorial([
+    { remitente: 'asistente', contenido_mensaje: '¿Agendamos una visita?' },
+    { remitente: 'usuario', contenido_mensaje: '¿y a crédito?' },
+    { remitente: 'asistente', contenido_mensaje: 'Acá eliges el día: https://wspai.vercel.app/visita/abc123' },
+    { remitente: 'usuario', contenido_mensaje: '¿y el título?' },
+  ]);
+  assert.match(instruccion, /ya le mandaste el enlace/);
+  assert.doesNotMatch(instruccion, /enviar_link_agenda/);
 });
 
 test('si aceptó, deja de frenarlo', () => {
@@ -634,7 +668,41 @@ test('si aceptó, deja de frenarlo', () => {
     { remitente: 'asistente', contenido_mensaje: '¿Te gustaría que agendemos una visita?' },
     { remitente: 'usuario', contenido_mensaje: 'Sí' },
   ]);
-  assert.doesNotMatch(instruccion, /NO se lo vuelvas a proponer/);
+  assert.doesNotMatch(instruccion, /NO vuelvas a hacerle la misma pregunta/);
+});
+
+test('no deja ir al que se va a pensarlo', () => {
+  const instruccion = instruccionSegunHistorial([
+    { remitente: 'usuario', contenido_mensaje: 'Ok voy a conversar con mi familia' },
+  ]);
+  assert.match(instruccion, /Se está despidiendo sin decidir nada/);
+  assert.match(instruccion, /permiso para escribirle/);
+});
+
+// El mensaje que acaba de llegar no está en el historial: el webhook lo
+// guarda y después lo recorta. Sin pasarlo aparte, los avisos miraban el
+// mensaje anterior e iban siempre un turno atrasados.
+test('los avisos miran el mensaje que acaba de llegar', () => {
+  const historial = [
+    { remitente: 'usuario', contenido_mensaje: 'info de Torres de Parcona' },
+    { remitente: 'asistente', contenido_mensaje: 'Nos quedan 9 lotes de 109 m².' },
+  ];
+  assert.doesNotMatch(instruccionSegunHistorial(historial), /Se está despidiendo/);
+  assert.match(
+    instruccionSegunHistorial(historial, 'Ok voy a conversar con mi familia'),
+    /Se está despidiendo/,
+  );
+});
+
+test('un mensaje vago no es pie para repetir la ficha', () => {
+  for (const vago of ['Quiero información', '👀👀👀', 'Buenos días']) {
+    const instruccion = instruccionSegunHistorial([
+      { remitente: 'usuario', contenido_mensaje: 'info de Torres de Parcona' },
+      { remitente: 'asistente', contenido_mensaje: 'Nos quedan 9 lotes de 109 m².' },
+      { remitente: 'usuario', contenido_mensaje: vago },
+    ]);
+    assert.match(instruccion, /NO le repitas la ficha/, `no avisó con: ${vago}`);
+  }
 });
 
 test('recoge lo que la persona contó de sí misma', () => {
