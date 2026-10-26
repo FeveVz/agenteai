@@ -750,3 +750,149 @@ test('ningún archivo del servidor tiene caracteres de control', () => {
 
   assert.deepStrictEqual(sospechosos, [], 'caracteres de control:\n  ' + sospechosos.join('\n  '));
 });
+
+// ─── El cierre de la visita ───────────────────────────────────────────────────
+//
+// Auditoría del mes del 27 de septiembre al 26 de octubre: 96 contactos,
+// 94 invitaciones a visitar, 11 enlaces de calendario, 6 que dijeron que sí,
+// 1 visita agendada. Todo lo que sigue cubre uno de esos eslabones roto.
+
+const {
+  yaVisito,
+  seDespidio,
+  seVaAPensar,
+  perfilComprador,
+} = require('../server/utils/conversacion');
+
+const {
+  revisarFechaDeVisita,
+  describirDiaRelativo,
+  herramientaObligada,
+} = require('../server/services/openai');
+
+test('el sí se detecta en el mensaje que acaba de llegar, no un turno después', () => {
+  const historial = [
+    { remitente: 'usuario', contenido_mensaje: 'info de Torres de Parcona' },
+    { remitente: 'asistente', contenido_mensaje: '¿Te gustaría que agendemos una visita?' },
+  ];
+  // Antes este turno todavía decía "todavía no te dijo que sí".
+  assert.match(instruccionSegunHistorial(historial, 'Sí'), /YA TE DIJO QUE SÍ/);
+});
+
+test('cuando dice que sí, el código no se calla: manda cerrar', () => {
+  // Las dos ramas que existían exigían !acepto, así que en el turno exacto en
+  // que el comprador aceptaba, el estado calculado dejaba de decir nada. Seis
+  // aceptaron en el mes y una sola llegó a agendar.
+  const sinEnlace = instruccionSegunHistorial([
+    { remitente: 'asistente', contenido_mensaje: '¿Agendamos una visita?' },
+  ], 'dale');
+  assert.match(sinEnlace, /proponer_horarios/);
+  assert.doesNotMatch(sinEnlace, /todavía no te dijo que sí/);
+
+  const conEnlace = instruccionSegunHistorial([
+    { remitente: 'asistente', contenido_mensaje: '¿Agendamos una visita?' },
+    { remitente: 'asistente', contenido_mensaje: 'Elige acá: https://wspai.vercel.app/visita/abc123' },
+  ], 'ok');
+  assert.match(conEnlace, /ya tiene el enlace/i);
+});
+
+test('el turno del sí obliga a llamar proponer_horarios', () => {
+  // Reproducido sobre los 463 turnos reales: el aviso en prosa que pide usar
+  // la herramienta del cierre se disparó 158 veces y el modelo la llamó 15.
+  const forzado = herramientaObligada('SOBRE ESTA CONVERSACIÓN:\n- YA TE DIJO QUE SÍ a conocer el proyecto.');
+  assert.deepStrictEqual(forzado, { type: 'function', function: { name: 'proponer_horarios' } });
+  assert.strictEqual(herramientaObligada('cualquier otra cosa'), 'auto');
+  assert.strictEqual(herramientaObligada(''), 'auto');
+});
+
+test('"por ahora no puedo abrir el enlace" no es una despedida', () => {
+  // Mensaje 722 de producción, contacto PE.1393664369419421. Un minuto antes
+  // había escrito "Si yo te confirmo para el 17 o 18 de octubre" y había
+  // recibido el enlace: era el lead más caliente del mes y el detector lo
+  // trató como alguien que se iba.
+  assert.ok(!seVaAPensar('Por ahora no puedo ingresar a ningún enlace'));
+  assert.ok(!seVaAPensar('Si yo te confirmo para el 17 o 18 de octubre'));
+  // Y lo que sí es una despedida sigue siéndolo.
+  assert.ok(seVaAPensar('Ok voy a conversar con mi familia'));
+  assert.ok(seVaAPensar('lo voy a pensar y te aviso'));
+});
+
+test('reconoce a quien ya estuvo en el proyecto', () => {
+  // Contacto ...4782: ya fue, fue con su esposa y le gustó. El agente le dio
+  // el precio, le mandó dos fotos y no pidió nada.
+  assert.ok(yaVisito('El que le habla estuvo allí la semana pasada y a mi esposa le gustó la ubicación'));
+  assert.ok(yaVisito('ya fui al proyecto el sábado'));
+  assert.ok(yaVisito('pasé por ahí ayer'));
+  // Querer ir no es haber ido, y verlo en Facebook tampoco.
+  assert.ok(!yaVisito('quiero visitar el proyecto'));
+  assert.ok(!yaVisito('vi el proyecto en Facebook'));
+});
+
+test('prohíbe despedirse cuando la persona sigue escribiendo', () => {
+  // El contacto PE.981400590890326 escribió "Ok" siete veces y recibió siete
+  // despedidas distintas.
+  assert.ok(seDespidio('¡Hasta luego! Si necesitas más información, no dudes en contactarme.'));
+  assert.ok(seDespidio('¡Cuídate mucho! Que tengas un excelente día'));
+  assert.ok(!seDespidio('Nos quedan lotes de 109 m². ¿Para qué lo estás buscando?'));
+
+  const instruccion = instruccionSegunHistorial([
+    { remitente: 'usuario', contenido_mensaje: 'info' },
+    { remitente: 'asistente', contenido_mensaje: '¡Hasta luego! Que tengas un excelente día 😊' },
+  ], 'Ok');
+  assert.match(instruccion, /PROHIBIDO despedirte/);
+});
+
+test('sabe qué no sabe del comprador', () => {
+  // El prompt pide descubrimiento en prosa desde hace semanas: de 302
+  // respuestas del mes, 2 preguntaron presupuesto y 0 preguntaron el plazo.
+  const nuevo = perfilComprador([{ contenido_mensaje: 'hola, info de Parcona' }]);
+  assert.strictEqual(nuevo.tiene.length, 0);
+  assert.ok(nuevo.falta.length >= 4);
+
+  const contado = perfilComprador([{ contenido_mensaje: 'es para vivir con mi familia, pago al contado' }]);
+  assert.ok(contado.tiene.includes('uso'));
+  assert.ok(contado.tiene.includes('forma_de_pago'));
+
+  assert.match(
+    instruccionSegunHistorial([{ remitente: 'asistente', contenido_mensaje: 'hola' }], 'cuánto cuesta'),
+    /Todavía no sabes/,
+  );
+});
+
+test('no agenda una visita sobre una fecha inventada', () => {
+  // La columna fecha_visita es texto: la base aceptaba cualquier cadena, y
+  // formatearFechaCompleta la convertía en algo que suena real. El comprador
+  // recibía la confirmación de una visita que no estaba en ningún calendario.
+  const horario = resolverHorario({
+    hora_apertura: '09:00', hora_cierre: '17:00', minutos_por_slot: 30, dias_atencion: '1,2,3,4,5,6,0',
+  });
+
+  assert.strictEqual(revisarFechaDeVisita('2099-10-27T10:30', horario), null);
+
+  for (const basura of ['el sábado a las 10', '', '2026-13-45T10:30', 'mañana']) {
+    assert.ok(revisarFechaDeVisita(basura, horario), `aceptó basura: ${basura}`);
+  }
+  assert.match(revisarFechaDeVisita('2020-01-05T10:30', horario).mensaje, /ya paso/);
+  assert.match(revisarFechaDeVisita('2099-10-27T10:17', horario).mensaje, /no es un horario/);
+  assert.match(revisarFechaDeVisita('2099-10-27T22:00', horario).mensaje, /no es un horario/);
+});
+
+test('los horarios se le dicen al cliente como los diría una persona', () => {
+  const hoy = new Date('2026-10-26T12:00:00Z');
+  assert.strictEqual(describirDiaRelativo('2026-10-26', hoy), 'hoy');
+  assert.strictEqual(describirDiaRelativo('2026-10-27', hoy), 'mañana martes');
+  assert.strictEqual(describirDiaRelativo('2026-10-31', hoy), 'el sábado 31');
+});
+
+test('el prompt ya no lleva ninguna cifra que el modelo pueda copiar', () => {
+  // 55 respuestas a 46 compradores distintos dijeron "solo 9 lotes", la última
+  // 16 días después de que Pamela borrara ese número del catálogo. El dato
+  // salía del ejemplo que estaba escrito a mano en el prompt.
+  const prompt = construirSystemPrompt('+51900000000', {
+    nombre_agencia: 'Pamela Barrios', nombre_agente: 'Camila',
+  }, ['Urbanización Torres de Parcona']);
+
+  assert.doesNotMatch(prompt, /9 lotes/);
+  assert.doesNotMatch(prompt, /S\/\s?\d/);
+  assert.doesNotMatch(prompt, /\d+\s?m²/);
+});

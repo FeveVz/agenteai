@@ -6,6 +6,7 @@ const {
   resolverHorario,
   esDiaDeAtencion,
   describirHorario,
+  generarHorariosDelDia,
 } = require('../utils/fechas');
 const { buscarPorNombre, normalizar } = require('../utils/proyectos');
 const { limpiarWhatsApp } = require('../utils/formatoWhatsApp');
@@ -13,6 +14,45 @@ const { obtenerCorreccionesParaPrompt, obtenerMemoriaComprador } = require('./ap
 const { instruccionSegunHistorial } = require('../utils/conversacion');
 const { crearEnlaceAgenda } = require('../routes/agenda');
 const { enviarAlertaVisita } = require('./email');
+
+// El modelo se elige por variable de entorno para poder comparar candidatos
+// en produccion sin desplegar codigo. Vino clavado en 'gpt-4o' desde el
+// principio, y toda la arquitectura de este agente —el estado calculado en
+// codigo, las instrucciones pegadas al payload de cada herramienta— depende de
+// que el modelo respete esa pila. Uno mas debil la obedece peor.
+const MODELO = (process.env.MODELO_OPENAI || 'gpt-4o').trim();
+
+// El ciclo de herramientas no tenia tope. Si el modelo pide una herramienta
+// inexistente, el `default` devuelve un error que no corta nada y puede
+// volver a pedirla: cada ronda es una llamada mas a la API y mas segundos
+// contra el limite de 9 que da Twilio.
+const MAX_RONDAS_HERRAMIENTAS = 5;
+
+const TOPE_DE_RESPUESTA = 500;
+const TEMPERATURA = 0.7;
+
+/**
+ * Los parametros de muestreo que acepta cada modelo.
+ *
+ * No son iguales entre familias, y probado contra la API con la clave de
+ * Pamela: gpt-4o quiere `max_tokens`; gpt-5.4 y gpt-5.4-mini quieren
+ * `max_completion_tokens` y aceptan temperatura; gpt-5.5 y la familia gpt-5.6
+ * quieren `max_completion_tokens` y rechazan cualquier temperatura que no sea
+ * la de fabrica ("Unsupported value: 'temperature' does not support 0.7").
+ *
+ * Mandar el parametro equivocado no degrada la respuesta: devuelve 400 y el
+ * comprador no recibe nada. Por eso esto vive en codigo y no en la confianza
+ * de que quien cambie MODELO_OPENAI se acuerde.
+ */
+function parametrosDelModelo(modelo) {
+  const nuevo = /^(gpt-5|o[0-9])/.test(modelo);
+  const sinTemperatura = /^(gpt-5\.[5-9]|gpt-5\.1[0-9]|gpt-6|o[0-9])/.test(modelo);
+
+  return {
+    ...(nuevo ? { max_completion_tokens: TOPE_DE_RESPUESTA } : { max_tokens: TOPE_DE_RESPUESTA }),
+    ...(sinTemperatura ? {} : { temperature: TEMPERATURA }),
+  };
+}
 
 let clienteOpenAI;
 
@@ -80,6 +120,25 @@ const HERRAMIENTAS = [
           nombre_proyecto: { type: 'string', description: 'Proyecto que el cliente va a pagar. Obligatorio: cada proyecto puede pertenecer a una empresa distinta, con cuentas distintas.' },
         },
         required: ['nombre_proyecto'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      // La unica herramienta de horarios que habia exigia una fecha, asi que
+      // el modelo tenia que inventar primero el dia para recien enterarse de
+      // las horas. Resultado medido en un mes: de 462 respuestas, ninguna
+      // ofrecio un horario concreto. Esta no pide nada: devuelve los proximos
+      // turnos libres de verdad, ya escritos.
+      name: 'proponer_horarios',
+      description: 'Devuelve los proximos horarios libres de verdad para una visita, ya escritos para leerselos al cliente. Usala SIEMPRE que corresponda proponer una visita o cuando el cliente ya dijo que si: ofrecerle dos horarios concretos convierte mucho mas que preguntarle si quiere agendar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          cuantos: { type: 'integer', description: 'Cuantos horarios ofrecer. Por defecto 3, nunca mas de 4: dar muchas opciones paraliza.' },
+        },
+        required: [],
       },
     },
   },
@@ -173,6 +232,78 @@ const HERRAMIENTAS = [
  */
 function esUrlSegura(url) {
   return typeof url === 'string' && /^https?:\/\/\S+$/i.test(url.trim());
+}
+
+/**
+ * Que tiene de malo esta fecha de visita, o null si esta bien.
+ *
+ * Mismo contrato que exige la pagina publica (server/routes/agenda.js): si el
+ * comprador que reserva solo tiene que cumplirlo, el agente tambien.
+ */
+function revisarFechaDeVisita(fechaVisita, horario) {
+  const texto = String(fechaVisita == null ? '' : fechaVisita).trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(texto)) {
+    return { mensaje: `"${texto}" no es una fecha y hora valida. Pidele al cliente el dia y la hora, o llama a proponer_horarios.` };
+  }
+
+  const cuando = new Date(`${texto}-05:00`);   // Peru es UTC-5 todo el año
+  if (Number.isNaN(cuando.getTime())) {
+    return { mensaje: `"${texto}" no existe en el calendario. Pidele al cliente otra fecha.` };
+  }
+
+  const fecha = texto.substring(0, 10);
+  const hora = texto.substring(11, 16);
+
+  if (cuando.getTime() < Date.now()) {
+    return { fecha, mensaje: `${texto} ya paso. Ofrecele una fecha de aqui en adelante: llama a proponer_horarios.` };
+  }
+
+  if (!esDiaDeAtencion(fecha, horario)) {
+    return { fecha, mensaje: `El ${fecha} no es dia de atencion. El horario es: ${describirHorario(horario)}. Ofrecele otro dia.` };
+  }
+
+  if (!generarHorariosDelDia(horario).includes(hora)) {
+    return { fecha, mensaje: `Las ${hora} no es un horario de atencion. El horario es: ${describirHorario(horario)}, y las visitas arrancan cada media hora.` };
+  }
+
+  return null;
+}
+
+/** Los horarios que quedan libres un dia, para ofrecerlos en vez de solo decir que no. */
+async function horariosLibresDelDia(supabase, fecha, horario) {
+  const { data: visitas } = await supabase
+    .from('visitas')
+    .select('*')
+    .gte('fecha_visita', `${fecha}T00:00:00`)
+    .lte('fecha_visita', `${fecha}T23:59:59`)
+    .neq('estado', 'cancelada');
+
+  return calcularHorariosLibres(visitas || [], horario);
+}
+
+/** La primera línea de un campo de varias, sin el resto. */
+function primeraLinea(texto) {
+  return String(texto == null ? '' : texto).split(/\r?\n/)[0].trim();
+}
+
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+/**
+ * "hoy", "mañana martes", "el sábado 31" — como lo diría una persona en Ica.
+ *
+ * Un horario que el cliente tiene que traducir de "2026-10-28T10:30" no lo lee
+ * nadie. Vive en este archivo y no en utils/fechas.js porque ese archivo se
+ * está tocando en paralelo; cuando se asiente, se muda.
+ */
+function describirDiaRelativo(fecha, hoyLima) {
+  const hoy = hoyLima.toISOString().substring(0, 10);
+  const manana = new Date(hoyLima.getTime() + 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+  const dia = new Date(`${fecha}T12:00:00Z`);
+
+  if (fecha === hoy) return 'hoy';
+  if (fecha === manana) return `mañana ${DIAS_SEMANA[dia.getUTCDay()]}`;
+  return `el ${DIAS_SEMANA[dia.getUTCDay()]} ${dia.getUTCDate()}`;
 }
 
 function parsearImagenes(texto) {
@@ -283,12 +414,36 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       }
 
       const proyecto = coincidencias[0];
-      const imagenes = parsearImagenes(proyecto.imagenes).slice(0, tope);
+      const todasLasFotos = parsearImagenes(proyecto.imagenes);
+
+      if (todasLasFotos.length === 0) {
+        return {
+          exito: false,
+          mensaje: `Todavía no hay imágenes cargadas de ${proyecto.nombre}. NO inventes ni describas fotos que no viste: ofrece agendar una visita para que lo vea en persona, o que un asesor se las envíe.`,
+        };
+      }
+
+      // Cuantas ya se le mandaron antes en esta conversacion. El contador
+      // vivia solo dentro del turno, asi que la herramienta siempre empezaba
+      // de cero y mandaba las MISMAS primeras fotos: el contacto ...1746
+      // recibio las mismas dos imagenes seis veces mientras escribia "no
+      // envies esas fotos, quiero otras" y "solo llego 1 foto".
+      const yaEnviadas = (contexto.historial || [])
+        .filter(m => m.remitente === 'asistente')
+        .reduce((suma, m) => {
+          const marca = String(m.contenido_mensaje || '').match(/\[\+(\d+) imagen/);
+          return suma + (marca ? Number(marca[1]) : 0);
+        }, 0);
+
+      const imagenes = todasLasFotos.slice(yaEnviadas, yaEnviadas + tope);
 
       if (imagenes.length === 0) {
         return {
           exito: false,
-          mensaje: `Todavía no hay imágenes cargadas de ${proyecto.nombre}. NO inventes ni describas fotos que no viste: ofrece agendar una visita para que lo vea en persona, o que un asesor se las envíe.`,
+          ya_le_enviaste: todasLasFotos.map(i => i.descripcion).filter(Boolean),
+          mensaje: `Ya le enviaste las ${todasLasFotos.length} imagen(es) que hay de ${proyecto.nombre} y no hay mas cargadas. `
+                 + 'NO las reenvies: recibir la misma foto otra vez es lo que hace que un agente parezca roto. '
+                 + 'Dile derecho que esas son las que tienes y ofrecele verlo en persona, que es donde se ve todo.',
         };
       }
 
@@ -299,6 +454,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         proyecto: proyecto.nombre,
         enviadas: imagenes.length,
         detalle: imagenes.map(i => i.descripcion).filter(Boolean),
+        quedan_por_enviar: Math.max(todasLasFotos.length - yaEnviadas - imagenes.length, 0),
         mensaje: `Se están enviando ${imagenes.length} imagen(es) de ${proyecto.nombre} por WhatsApp. Acompáñalas con un mensaje corto que las presente; no las describas en detalle porque el cliente las va a ver.`,
       };
     }
@@ -356,6 +512,11 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
         if (p.desarrolladora) salida.desarrolladora = p.desarrolladora;
         if (p.estado_comercial) salida.estado_comercial = p.estado_comercial;
         if (p.entrega_titulo) salida.entrega_titulo = p.entrega_titulo;
+        if (p.lotes_disponibles) salida.lotes_disponibles = p.lotes_disponibles;
+        if (p.reserva) salida.reserva = p.reserva;
+        if (p.bonos) salida.bonos = p.bonos;
+        if (p.promocion) salida.promocion = p.promocion;
+        if (p.punto_encuentro) salida.punto_encuentro = p.punto_encuentro;
         if (esUrlSegura(p.mapa_url)) salida.mapa_url = p.mapa_url.trim();
 
         const fotos = parsearImagenes(p.imagenes);
@@ -394,6 +555,15 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       // Un lote se vende mirandolo. La instruccion de mandar fotos estaba en
       // el prompt desde el principio y el modelo no la ejecutaba nunca; va acá,
       // con el numero de fotos que realmente hay, que es lo que sí lee.
+      // Lo que si hay, armado con lo que está cargado de verdad. Nada de esto se
+      // inventa: si el campo está vacío, la línea no aparece.
+      const ofrecibles = [];
+      for (const x of limpios) {
+        if (x.bonos) ofrecibles.push(`${x.nombre}: ${x.bonos}`);
+        if (x.promocion) ofrecibles.push(`${x.nombre}: ${x.promocion}`);
+        if (x.financiamiento) ofrecibles.push(`${x.nombre}: ${primeraLinea(x.financiamiento)}`);
+      }
+
       const sinEtapa = limpios.some(x => (x.datos_que_no_tengo || []).includes('etapa o fase de la urbanizacion'));
       const avisoEtapa = sinEtapa
         ? 'En particular: "etapa" o "fase" de la urbanizacion NO es lo mismo que "estado comercial". '
@@ -411,6 +581,13 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       return {
         proyectos: limpios,
         total: limpios.length,
+        ...(ofrecibles.length > 0 ? {
+          lo_que_si_puedo_ofrecer: ofrecibles,
+          si_tienes_que_decir_que_no: 'Cuando algo que pide no existe (Techo Propio, un proyecto que no es nuestro, '
+            + 'una condicion que no manejamos), di que no en una linea y ofrecele de inmediato lo mas parecido de '
+            + '`lo_que_si_puedo_ofrecer`, con el numero concreto. Decir que no y despedirse es regalar el cliente. '
+            + 'Si de verdad no hay nada que le sirva, preguntale que presupuesto maneja antes de dejarlo ir.',
+        } : {}),
         // Esto es lo último que el modelo lee antes de escribir, y por eso
         // pesa mucho más que la misma regla puesta en el prompt: ahí queda
         // miles de tokens atrás, compitiendo contra un JSON recién servido.
@@ -503,6 +680,66 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
       };
     }
 
+    case 'proponer_horarios': {
+      const cuantos = Math.min(Math.max(Number(argumentos.cuantos) || 3, 1), 4);
+      const horario = resolverHorario(contexto.config);
+
+      // Se busca dia por dia hasta llenar el cupo. Dos semanas alcanzan de
+      // sobra incluso si atiende dos dias por semana, y acota el bucle.
+      const propuestas = [];
+      const hoyLima = new Date(Date.now() - 5 * 60 * 60 * 1000);
+
+      for (let d = 0; d < 14 && propuestas.length < cuantos; d++) {
+        const dia = new Date(hoyLima.getTime() + d * 24 * 60 * 60 * 1000);
+        const fecha = dia.toISOString().substring(0, 10);
+        if (!esDiaDeAtencion(fecha, horario)) continue;
+
+        const { data: visitas } = await supabase
+          .from('visitas')
+          .select('*')
+          .gte('fecha_visita', `${fecha}T00:00:00`)
+          .lte('fecha_visita', `${fecha}T23:59:59`)
+          .neq('estado', 'cancelada');
+
+        let libres = calcularHorariosLibres(visitas || [], horario);
+
+        // Hoy no se ofrece lo que ya paso, y menos la hora en curso: que el
+        // cliente lea "hoy 9:00" a las 14:00 lo manda a otra inmobiliaria.
+        // Se deja un margen de dos horas para que alcance a llegar.
+        if (d === 0) {
+          const corte = new Date(hoyLima.getTime() + 2 * 60 * 60 * 1000)
+            .toISOString().substring(11, 16);
+          libres = libres.filter(h => h > corte);
+        }
+
+        for (const hora of libres) {
+          if (propuestas.length >= cuantos) break;
+          propuestas.push({
+            fecha_hora: `${fecha}T${hora}`,
+            como_decirlo: `${describirDiaRelativo(fecha, hoyLima)} a las ${hora}`,
+          });
+        }
+      }
+
+      if (propuestas.length === 0) {
+        return {
+          exito: false,
+          mensaje: `No quedan horarios libres en los proximos dias. El horario de atencion es: ${describirHorario(horario)}. `
+                 + 'Preguntale que dia le queda comodo y usa consultar_disponibilidad con esa fecha.',
+        };
+      }
+
+      return {
+        exito: true,
+        horarios: propuestas,
+        instruccion: 'Ofrecele DOS de estos horarios, con las palabras de `como_decirlo`, en una sola frase y sin lista. '
+          + 'Ejemplo de la forma: "te puedo reservar <el primero> o <el segundo>, cual te queda mejor?". '
+          + 'NO le preguntes si quiere agendar: eso ya se lo preguntaste y no funciono. Cuando elija uno, '
+          + 'pidele su nombre completo y confirma con agendar_visita usando el `fecha_hora` exacto de este listado. '
+          + 'Si te dice que ninguno le va, recien ahi pasale el enlace con enviar_link_agenda para que elija ella.',
+      };
+    }
+
     case 'consultar_disponibilidad': {
       const { fecha } = argumentos;
 
@@ -573,6 +810,28 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
 
     case 'agendar_visita': {
       const { numero_telefono, nombre_cliente, fecha_visita, proyecto_interes, notas } = argumentos;
+
+      // La fecha se insertaba tal como la escribia el modelo. La columna es
+      // texto, asi que la base acepta cualquier cadena, y formatearFechaCompleta
+      // convierte una fecha invalida en algo que suena real: el cliente recibia
+      // la confirmacion de una visita que no existe en ningun calendario. La
+      // ruta publica si valida esto; el agente no.
+      const horarioConfig = resolverHorario(contexto.config);
+      const problema = revisarFechaDeVisita(fecha_visita, horarioConfig);
+
+      if (problema) {
+        const sugeridos = problema.fecha && esDiaDeAtencion(problema.fecha, horarioConfig)
+          ? await horariosLibresDelDia(supabase, problema.fecha, horarioConfig)
+          : [];
+
+        return {
+          exito: false,
+          mensaje: problema.mensaje,
+          ...(sugeridos.length > 0 ? { horarios_libres_ese_dia: sugeridos } : {}),
+          instruccion: 'No confirmes nada todavia. Si hay horarios libres en el listado, ofrecele dos. '
+            + 'Si no hay, llama a proponer_horarios y ofrecele los que te devuelva.',
+        };
+      }
 
       // El proyecto tiene que existir de verdad
       const { data: disponibles, error: errorCatalogo } = await supabase
@@ -872,29 +1131,38 @@ se llega conversando, no repitiendo la invitación.
 ASÍ SE VE LA DIFERENCIA. Alguien escribe "Quiero más información de Torres de
 Parcona" (es el texto automático de un anuncio, no una consulta detallada).
 
+ATENCION CON LO QUE SIGUE: es la FORMA de una buena respuesta, con los datos
+tapados a propósito. Los corchetes se llenan SIEMPRE con lo que te devuelva
+consultar_proyectos para ese proyecto, nunca con lo que leas acá ni con lo que
+recuerdes de otra conversación. Si copias una cifra de este ejemplo le estás
+mintiendo a un comprador.
+
 MAL — esto es un catálogo, y ahí se muere la conversación:
-"🏡 *Urbanización Torres de Parcona*
-📍 Ubicación: 1era cuadra de Av. 28 de Julio
-📐 Área: desde 109 m²
-💰 Precio: desde S/65,000
-🏗️ Entrega inmediata, solo 9 lotes
-✅ Títulos en proceso
-🚗 Movilidad desde puntos céntricos
+"*[nombre del proyecto]*
+Ubicación: [ubicación]
+Área: [área]
+Precio: [precio]
+[estado de entrega]
+[títulos]
+[movilidad]
 ¿Te gustaría agendar una visita?"
+Siete datos por línea, con emoji adelante, y la misma pregunta de siempre.
 
 BIEN — engancha con lo justo y abre la conversación:
-"¡Hola! Qué bueno que te interese Torres de Parcona.
+"¡Hola! Qué bueno que te interese [proyecto].
 
-De ese nos quedan *solo 9 lotes*, de 109 m² y con entrega inmediata — o sea
-que puedes empezar a construir apenas cierres.
+[UN dato del proyecto que venga del payload] y [otro dato], o sea que [por qué
+eso le conviene a ella].
 
-¿Lo estás viendo para tu casa o más como inversión? Según eso te cuento lo que
-más te conviene."
+[UNA pregunta que te sirva para asesorarla]"
 
 Mira la diferencia: el segundo da DOS datos en vez de siete, explica por qué
-importan, y termina con una pregunta que sirve para asesorar. El precio, la
-ubicación exacta y los títulos salen después, cuando pregunten o cuando sepas
-qué busca. Eso es asesorar; lo otro es imprimir un folleto.
+importan, y termina con una pregunta que sirve para asesorar. El resto sale
+después, cuando pregunten o cuando sepas qué busca. Eso es asesorar; lo otro es
+imprimir un folleto.
+
+Y no abras siempre con la misma frase: si en el historial ya saludaste así, usa
+otra. Dos compradores distintos no tienen por qué recibir el mismo mensaje.
 
 PROYECTOS DE ${empresaODefecto.toUpperCase()} (los únicos que existen — nunca menciones ni inventes otro):
 ${listaProyectos}
@@ -928,6 +1196,40 @@ Reglas importantes:
 
 // ── Función principal ─────────────────────────────────────────────────────────
 
+const NOMBRES_DE_HERRAMIENTAS = new Set(HERRAMIENTAS.map(h => h.function.name));
+
+/**
+ * La respuesta del modelo, o un mensaje vacio si vino sin opciones.
+ *
+ * Los dos accesos a `respuesta.choices[0].message` estaban sin proteger: con
+ * `choices` vacio —pasa cuando el proveedor corta la generacion— el turno
+ * entero revienta con un TypeError y el comprador no recibe nada.
+ */
+function elegirMensaje(respuesta) {
+  const opcion = respuesta && Array.isArray(respuesta.choices) ? respuesta.choices[0] : null;
+  return (opcion && opcion.message) || { content: '', tool_calls: [] };
+}
+
+/**
+ * Cuando el estado de la conversacion dice que este turno es de cerrar, la
+ * herramienta del cierre deja de ser opcional.
+ *
+ * Medido sobre los 463 turnos reales: el aviso en prosa que pide usar
+ * enviar_link_agenda se disparo 158 veces y el modelo la llamo 15. Es el mismo
+ * patron de siempre en este proyecto, una vez mas: pedirlo no alcanza.
+ *
+ * Se obliga `proponer_horarios` y no `enviar_link_agenda` porque ofrecer dos
+ * horarios concretos no le pide al comprador que conteste que si: le pide que
+ * elija. El enlace queda como salida para quien prefiere elegir solo, y el
+ * propio payload de la herramienta se lo dice al modelo.
+ */
+function herramientaObligada(instruccion) {
+  if (/YA TE DIJO QUE SÍ/.test(instruccion || '')) {
+    return { type: 'function', function: { name: 'proponer_horarios' } };
+  }
+  return 'auto';
+}
+
 async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpresa, historial) {
   const openai = obtenerClienteOpenAI();
   const config = configEmpresa || {};
@@ -948,12 +1250,16 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
   // mas cerca de escribir. Probado contra el modelo real: la regla estatica
   // de no repetir la invitacion perdia contra el objetivo declarado de
   // llevar a una visita, y el agente invitaba en los tres turnos seguidos.
+  const instruccionConversacion = instruccionSegunHistorial(historial, mensajeUsuario);
   const systemPrompt = construirSystemPrompt(numeroTelefono, config, nombresProyectos)
-    + memoria + correcciones + instruccionSegunHistorial(historial, mensajeUsuario);
+    + memoria + correcciones + instruccionConversacion;
 
   // Efectos que no viajan en el texto: las herramientas lo van llenando y el
   // webhook lo usa para adjuntar media al mensaje de WhatsApp.
-  const contexto = { imagenes: [], numeroTelefono, config };
+  // El historial viaja en el contexto para que las herramientas sepan que ya
+  // paso en la conversacion: sin esto, enviar_fotos_proyecto no tenia forma de
+  // saber cuales fotos ya habia mandado.
+  const contexto = { imagenes: [], numeroTelefono, config, historial: historial || [] };
 
   const mensajes = [{ role: 'system', content: systemPrompt }];
 
@@ -968,26 +1274,48 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
   console.log(`[OpenAI] Procesando mensaje de ${numeroTelefono}...`);
 
   let respuesta = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: MODELO,
     messages: mensajes,
     tools: HERRAMIENTAS,
-    tool_choice: 'auto',
-    temperature: 0.7,
-    max_tokens: 500,
+    // Pedirlo en prosa no alcanzo: reproducido sobre los 463 turnos reales, el
+    // aviso que dice "usa enviar_link_agenda" se disparo 158 veces y el modelo
+    // llamo la herramienta en 15. Cuando el estado calculado dice que este
+    // turno es de cerrar, la herramienta deja de ser opcional.
+    tool_choice: herramientaObligada(instruccionConversacion),
+    ...parametrosDelModelo(MODELO),
   });
 
-  let mensaje = respuesta.choices[0].message;
+  let mensaje = elegirMensaje(respuesta);
+  let rondas = 0;
 
   while (mensaje.tool_calls && mensaje.tool_calls.length > 0) {
-    console.log(`[OpenAI] Ejecutando ${mensaje.tool_calls.length} herramienta(s)...`);
+    rondas++;
+    console.log(`[OpenAI] Ejecutando ${mensaje.tool_calls.length} herramienta(s)... (ronda ${rondas})`);
     mensajes.push(mensaje);
 
     for (const toolCall of mensaje.tool_calls) {
       let args = {};
       try { args = JSON.parse(toolCall.function.arguments); } catch { /* args vacíos */ }
 
-      console.log(`[OpenAI] → ${toolCall.function.name}`, args);
-      const resultado = await ejecutarHerramienta(toolCall.function.name, args, contexto);
+      const nombre = toolCall.function.name;
+
+      // Una herramienta que no existe no se ejecuta: se le dice y se sigue.
+      // Antes caia en el `default`, que devolvia un error sin cortar el ciclo.
+      if (!NOMBRES_DE_HERRAMIENTAS.has(nombre)) {
+        console.warn(`[OpenAI] Pidio una herramienta que no existe: ${nombre}`);
+        mensajes.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({
+            exito: false,
+            mensaje: `La herramienta "${nombre}" no existe. Contesta con lo que ya tienes.`,
+          }),
+        });
+        continue;
+      }
+
+      console.log(`[OpenAI] → ${nombre}`, args);
+      const resultado = await ejecutarHerramienta(nombre, args, contexto);
       console.log(`[OpenAI] ← Resultado:`, resultado);
 
       mensajes.push({
@@ -997,16 +1325,21 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
       });
     }
 
+    // Al agotarse las rondas se le quitan las herramientas: tiene que redactar
+    // con lo que junto, que es mejor que seguir pidiendo o que quedarse sin
+    // respuesta cuando Twilio corte.
+    const seAgoto = rondas >= MAX_RONDAS_HERRAMIENTAS;
+    if (seAgoto) console.warn(`[OpenAI] Tope de ${MAX_RONDAS_HERRAMIENTAS} rondas: se fuerza la respuesta`);
+
     respuesta = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: MODELO,
       messages: mensajes,
-      tools: HERRAMIENTAS,
-      tool_choice: 'auto',
-      temperature: 0.7,
-      max_tokens: 500,
+      ...(seAgoto ? {} : { tools: HERRAMIENTAS, tool_choice: 'auto' }),
+      ...parametrosDelModelo(MODELO),
     });
 
-    mensaje = respuesta.choices[0].message;
+    mensaje = elegirMensaje(respuesta);
+    if (seAgoto) break;
   }
 
   const empresaODefecto = (config.nombre_agencia || '').trim() || 'la empresa';
@@ -1027,4 +1360,17 @@ async function procesarMensajeConIA(numeroTelefono, mensajeUsuario, configEmpres
 // construirSystemPrompt se exporta para poder probarlo: el respaldo del
 // nombre del agente es justo el tipo de detalle que se rompe en silencio
 // y termina presentando a una clienta con el nombre de otra.
-module.exports = { procesarMensajeConIA, construirSystemPrompt, obtenerClienteOpenAI };
+//
+// revisarFechaDeVisita, describirDiaRelativo y herramientaObligada también:
+// son las tres piezas que deciden si una visita se agenda de verdad, y las
+// tres se pueden probar sin tocar la base ni gastar una llamada al modelo.
+module.exports = {
+  parametrosDelModelo,
+  procesarMensajeConIA,
+  construirSystemPrompt,
+  obtenerClienteOpenAI,
+  revisarFechaDeVisita,
+  describirDiaRelativo,
+  herramientaObligada,
+  MODELO,
+};
