@@ -28,11 +28,22 @@ CREATE TABLE IF NOT EXISTS mensajes_whatsapp (
   numero_telefono TEXT NOT NULL,
   contenido_mensaje TEXT NOT NULL,
   remitente TEXT NOT NULL CHECK(remitente IN ('usuario', 'asistente')),
+  -- 'texto' | 'audio_entrante' | 'imagen_entrante' | 'sticker_entrante' |
+  -- 'ubicacion_entrante' | 'otro_medio_entrante' | 'puente' |
+  -- 'texto_e_imagen' | 'texto_imagen_fallida'. Sin CHECK a propósito: el
+  -- webhook tiene que poder guardar un tipo nuevo sin una migración, porque
+  -- la alternativa es perder el mensaje del comprador.
   tipo_mensaje TEXT NOT NULL DEFAULT 'texto',
+  medio_url TEXT,               -- URL del medio en api.twilio.com, o geo:<lat>,<lon>
+  medio_mime TEXT,              -- audio/ogg, image/jpeg, image/webp (sticker)
+  imagenes_enviadas INTEGER,    -- cuántas aceptó Twilio; NULL si se contestó por TwiML
   respuesta_ia TEXT,
   procesado INTEGER DEFAULT 0,
   recibido_en TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_mensajes_tipo
+  ON mensajes_whatsapp (tipo_mensaje, recibido_en DESC);
 
 
 -- ── Visitas agendadas ────────────────────────────────────────────
@@ -44,9 +55,18 @@ CREATE TABLE IF NOT EXISTS visitas (
   proyecto_interes TEXT,
   estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente', 'confirmada', 'cancelada', 'completada')),
   notas TEXT,
+  -- Celular que deja el comprador en la pagina. Se pide solo cuando
+  -- numero_telefono no es un numero alcanzable: 10 de 131 contactos llegan
+  -- de Twilio como identidad de WhatsApp ('PE.2104140390227158') y sin este
+  -- campo la visita quedaba confirmada sin a quien llamar.
+  telefono_contacto TEXT,
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- El tope de reservas por numero se cuenta en la base y no en memoria: en
+-- Vercel cada instancia arranca con su propio Map y el tope no existia.
+CREATE INDEX IF NOT EXISTS idx_visitas_numero_creado ON visitas (numero_telefono, creado_en);
 
 
 -- ── Catálogo ─────────────────────────────────────────────────────
@@ -70,8 +90,11 @@ CREATE TABLE IF NOT EXISTS proyectos (
   financiamiento TEXT,
   estado_comercial TEXT,        -- Pre-venta / En obra / Entregado
   entrega_titulo TEXT,          -- cuándo se entrega el título y la posesión
+  disponibilidad TEXT,          -- qué lotes quedan libres, uno por línea (etapa, número, área)
   desarrolladora TEXT,          -- empresa duena del proyecto; referencia desarrolladoras.nombre
   mapa_url TEXT,                -- enlace de Google Maps (http/https)
+  latitud DOUBLE PRECISION,     -- para calcular la distancia cuando el comprador
+  longitud DOUBLE PRECISION,    -- comparte su ubicación; vacías = distancia no calculada
   imagenes TEXT,                -- una URL pública por línea, descripción tras " | "
   activo BOOLEAN DEFAULT TRUE,
   orden INTEGER DEFAULT 100,
@@ -166,11 +189,31 @@ CREATE TABLE IF NOT EXISTS enlaces_agenda (
   numero_telefono TEXT NOT NULL,
   proyecto TEXT,
   expira_en TIMESTAMPTZ NOT NULL,
+  -- El embudo del enlace: enviado -> abierto -> reservado. Sin estas tres
+  -- columnas escritas no se puede distinguir "nadie lo abrio" (problema del
+  -- mensaje) de "lo abrio y el formulario lo expulso" (problema de la pagina),
+  -- que son dos arreglos opuestos. Medido: 16 enlaces emitidos, 1 visita.
   usos INTEGER DEFAULT 0,
+  abierto_en TIMESTAMPTZ,
+  reservado_en TIMESTAMPTZ,
   creado_en TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_enlaces_expira ON enlaces_agenda (expira_en);
+-- crearEnlaceAgenda reusa el enlace vivo del mismo numero en vez de acunar
+-- otro: en la base quedaron dos pares de enlaces para el mismo comprador,
+-- uno de ellos con 11 segundos de diferencia.
+CREATE INDEX IF NOT EXISTS idx_enlaces_numero ON enlaces_agenda (numero_telefono, expira_en);
+
+-- Incremento atomico de usos. El codigo la llama y, si no existe todavia,
+-- cae a un UPDATE simple: por eso la pagina no se rompe sin esta funcion.
+CREATE OR REPLACE FUNCTION incrementar_uso_enlace(p_codigo TEXT)
+RETURNS VOID AS $$
+  UPDATE enlaces_agenda
+     SET usos = COALESCE(usos, 0) + 1,
+         abierto_en = COALESCE(abierto_en, NOW())
+   WHERE codigo = p_codigo;
+$$ LANGUAGE sql;
 
 COMMENT ON TABLE enlaces_agenda IS
   'Enlaces cortos que el agente manda por WhatsApp para agendar visitas. El codigo reemplaza al token firmado en la URL.';
@@ -221,6 +264,10 @@ CREATE TABLE IF NOT EXISTS correcciones (
   debio_decir TEXT NOT NULL,    -- lo que tenia que haber respondido
   nota TEXT,                    -- por que estuvo mal, opcional
   activa BOOLEAN DEFAULT TRUE,  -- se desactiva sin perder el historial
+  -- Solo 6 correcciones viajan en el prompt (son ejemplos, no un manual) y
+  -- hay exactamente 6 cargadas: la septima desalojaba a otra en silencio.
+  resuelta_en_catalogo BOOLEAN DEFAULT FALSE, -- el dato ya quedo en el catalogo: libera cupo
+  fijada BOOLEAN DEFAULT FALSE,               -- sigue fallando: no se cae nunca
   creado_en TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -230,10 +277,23 @@ CREATE INDEX IF NOT EXISTS idx_correcciones_activas
 -- Lo que sabemos de cada persona mas alla del chat en curso. Dentro de una
 -- conversacion el agente ya ve los ultimos 20 mensajes; esto es para cuando
 -- alguien vuelve semanas despues.
+-- El resumen en prosa libre sale siempre generico: de los 47 que hay, 10 son
+-- la misma frase y ninguno trae un nombre. Los campos de abajo son los que
+-- sirven para retomar a un lead frio, y vacios se notan.
 CREATE TABLE IF NOT EXISTS compradores (
   numero_telefono TEXT PRIMARY KEY,
   nombre TEXT,
   resumen TEXT,                 -- que busca, presupuesto, que proyectos vio
+  uso TEXT DEFAULT 'sin_dato'
+    CHECK (uso IN ('vivienda', 'inversion', 'casa_de_verano', 'comercial', 'sin_dato')),
+  forma_pago TEXT DEFAULT 'sin_dato'
+    CHECK (forma_pago IN ('contado', 'cuotas', 'credito_bancario', 'sin_dato')),
+  presupuesto TEXT,             -- textual, como lo dijo el comprador
+  plazo TEXT,                   -- para cuando quiere comprar, en sus palabras
+  objecion TEXT,                -- lo que lo freno, en sus palabras
+  dato_para_retomar TEXT,       -- frase propia citada para abrir el seguimiento
+  telefono_alternativo TEXT,    -- otro numero que escribio en el chat
+  ya_visito BOOLEAN DEFAULT FALSE,
   actualizado_en TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -243,7 +303,8 @@ CREATE TABLE IF NOT EXISTS analisis (
   id BIGSERIAL PRIMARY KEY,
   generado_en TIMESTAMPTZ DEFAULT NOW(),
   mensajes_analizados INTEGER,
-  hasta_mensaje BIGINT,         -- ultimo id incluido, para no repetir trabajo
+  desde_mensaje BIGINT,         -- primer id EXCLUIDO: se leyo desde desde_mensaje+1
+  hasta_mensaje BIGINT,         -- ultimo id incluido; de aca arranca la corrida siguiente
   resultado JSONB NOT NULL
 );
 

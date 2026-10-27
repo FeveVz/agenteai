@@ -7,14 +7,23 @@
 
 const express = require('express');
 const { obtenerSupabase } = require('../db');
-const { analizarConversaciones } = require('../services/aprendizaje');
+const {
+  analizarConversaciones, contarPendientes, estadoCorrecciones, esColumnaDesconocida,
+  MAX_MENSAJES, MAX_TANDAS, MODELO_ANALISIS,
+} = require('../services/aprendizaje');
 const { obtenerClienteOpenAI } = require('../services/openai');
 
 const router = express.Router();
 
 // ── Informe de huecos ───────────────────────────────────────────────
 
-/** El último análisis guardado. No cuesta nada: no vuelve a llamar al modelo. */
+/**
+ * El último análisis guardado, más cuánto falta por analizar.
+ *
+ * `pendientes` viaja acá y no en el POST porque es la cifra que le dice a
+ * Pamela si vale la pena gastar la corrida, y tiene que verla ANTES de
+ * apretar. Es un count con head: no llama al modelo, no cuesta nada.
+ */
 router.get('/analisis', async (_req, res) => {
   try {
     const supabase = obtenerSupabase();
@@ -25,10 +34,27 @@ router.get('/analisis', async (_req, res) => {
       .limit(1)
       .single();
 
-    res.json({ ok: true, analisis: data || null });
+    let pendientes = null;
+    let cursor = null;
+    try {
+      const conteo = await contarPendientes(supabase);
+      pendientes = conteo.pendientes;
+      cursor = conteo.cursor;
+    } catch {
+      // Sin el conteo el panel igual muestra el informe.
+    }
+
+    res.json({
+      ok: true,
+      analisis: data || null,
+      pendientes,
+      cursor,
+      por_tanda: MAX_MENSAJES,
+      modelo: MODELO_ANALISIS(),
+    });
   } catch {
     // Todavía no se corrió ninguno: no es un error.
-    res.json({ ok: true, analisis: null });
+    res.json({ ok: true, analisis: null, pendientes: null, cursor: null, por_tanda: MAX_MENSAJES });
   }
 });
 
@@ -37,16 +63,25 @@ router.get('/analisis', async (_req, res) => {
  *
  * Es la única ruta del panel que gasta dinero, así que es explícita: se
  * dispara con un botón, no sola al abrir la pantalla.
+ *
+ * `desde` por defecto es 'auto': sigue desde donde quedó el análisis
+ * anterior. Antes el panel mandaba 0 siempre y la consulta era ascendente,
+ * así que las 9 corridas de la base releyeron los mismos 400 mensajes más
+ * viejos y los 525 más nuevos nunca se analizaron. 0 sigue existiendo, pero
+ * ahora hay que pedirlo ("Releer todo").
+ *
+ * Esta misma ruta es la que puede enganchar un cron: POST con el cuerpo
+ * {"desde":"auto","tandas":2} y la cabecera de sesión del panel.
  */
 router.post('/analizar', async (req, res) => {
   try {
-    // `desde` permite analizar solo lo nuevo. Sin él relee todo, que es lo
-    // que conviene la primera vez y cuando se cambió el prompt.
-    const desdeMensaje = Number(req.body?.desde) || 0;
+    const desdeMensaje = req.body?.desde === undefined ? 'auto' : req.body.desde;
+    const tandas = req.body?.tandas === undefined ? MAX_TANDAS : Number(req.body.tandas);
 
     const resultado = await analizarConversaciones({
       obtenerCliente: obtenerClienteOpenAI,
       desdeMensaje,
+      tandas,
     });
 
     res.json({ ok: true, ...resultado });
@@ -58,6 +93,14 @@ router.post('/analizar', async (req, res) => {
 
 // ── Correcciones ────────────────────────────────────────────────────
 
+/**
+ * Las correcciones, con el estado del cupo.
+ *
+ * `cupo` existe porque el tope de las que viajan en el prompt se cruzaba en
+ * silencio: hay 6 correcciones activas y MAX_CORRECCIONES es 6, así que la
+ * séptima desalojaba a otra sin que el panel dijera nada. Ahora la lista de
+ * desalojadas viene con nombre y el panel la puede mostrar en rojo.
+ */
 router.get('/correcciones', async (_req, res) => {
   try {
     const supabase = obtenerSupabase();
@@ -68,7 +111,15 @@ router.get('/correcciones', async (_req, res) => {
       .limit(100);
 
     if (error) throw error;
-    res.json({ ok: true, correcciones: data || [] });
+
+    let cupo = null;
+    try {
+      cupo = await estadoCorrecciones(supabase);
+    } catch {
+      // El cupo es informativo: sin él la lista igual se muestra.
+    }
+
+    res.json({ ok: true, correcciones: data || [], cupo });
   } catch (error) {
     console.error('[Aprendizaje] Error al listar correcciones:', error);
     res.status(500).json({ error: 'No se pudieron leer las correcciones', detalle: error.message });
@@ -116,6 +167,12 @@ router.put('/correcciones/:id', async (req, res) => {
     if (req.body?.activa !== undefined) cambios.activa = Boolean(req.body.activa);
     if (req.body?.debio_decir !== undefined) cambios.debio_decir = String(req.body.debio_decir).trim();
     if (req.body?.nota !== undefined) cambios.nota = String(req.body.nota).trim() || null;
+    // Las dos banderas del cupo: una libera el lugar porque el dato ya quedó
+    // cargado en el catálogo, la otra rescata a la que sigue fallando.
+    if (req.body?.resuelta_en_catalogo !== undefined) {
+      cambios.resuelta_en_catalogo = Boolean(req.body.resuelta_en_catalogo);
+    }
+    if (req.body?.fijada !== undefined) cambios.fijada = Boolean(req.body.fijada);
 
     if (Object.keys(cambios).length === 0) {
       return res.status(400).json({ error: 'Nada que cambiar.' });
@@ -128,7 +185,17 @@ router.put('/correcciones/:id', async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // La migración de las dos banderas se aplica a mano: si todavía no
+      // está, que el panel lo diga en vez de mostrar un error de base.
+      if (esColumnaDesconocida(error)) {
+        return res.status(409).json({
+          error: 'Falta aplicar la migración sql/migraciones/2026-10-aprendizaje-cursor-y-cupo.sql '
+               + 'para poder marcar correcciones como resueltas o fijadas.',
+        });
+      }
+      throw error;
+    }
     res.json({ ok: true, correccion: data });
   } catch (error) {
     console.error('[Aprendizaje] Error al actualizar la corrección:', error);

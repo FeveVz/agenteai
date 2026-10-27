@@ -67,7 +67,14 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
 
-  if (req.body.nombre !== undefined && !String(req.body.nombre).trim()) {
+  // El id va a un .eq() sobre una columna numérica: con cualquier otra cosa
+  // Postgres rechaza la consulta y salía 500 "Error al guardar la constructora",
+  // que hace pensar que la base está caída.
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  if (req.body.nombre !== undefined && !String(req.body.nombre == null ? '' : req.body.nombre).trim()) {
     return res.status(400).json({ error: 'El nombre no puede estar vacío.' });
   }
   if (req.body.pago_imagen_url !== undefined && !urlValida(req.body.pago_imagen_url)) {
@@ -90,6 +97,11 @@ router.put('/:id', async (req, res) => {
 
     if (error) {
       if (error.code === '23505') return res.status(409).json({ error: 'Ya existe otra constructora con ese nombre.' });
+      // PGRST116 = .single() no encontró fila. Sin esto, editar una
+      // constructora borrada desde otra pestaña devolvía 500.
+      if (String(error.code) === 'PGRST116') {
+        return res.status(404).json({ error: `No existe la constructora ${id}.` });
+      }
       throw error;
     }
 

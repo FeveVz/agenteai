@@ -34,8 +34,46 @@ router.put('/', async (req, res) => {
         hora_apertura, hora_cierre, minutos_por_slot, dias_atencion,
         nombre_agente, tipo_negocio, estilo_respuesta } = req.body;
 
-  if (nombre_agencia !== undefined && nombre_agencia.trim() === '') {
+  // Normalizar ANTES de comparar. Con {"nombre_agencia": null} esto era
+  // `null.trim()`: un TypeError fuera del try, que deja la request colgada sin
+  // respuesta y tumba el proceso con una promesa rechazada sin manejar. En
+  // local se cae el servidor; en Vercel se pierde la invocación y la
+  // configuración no se guarda, sin ningún mensaje útil.
+  if (nombre_agencia !== undefined && !String(nombre_agencia == null ? '' : nombre_agencia).trim()) {
     return res.status(400).json({ error: 'El nombre de la agencia no puede estar vacío.' });
+  }
+
+  // El horario de atención manda en el calendario público, en la validación de
+  // la reserva y en lo que el agente le dice al comprador. Un valor raro no se
+  // puede guardar: la base acepta cualquier entero y el calendario se queda
+  // vacío sin decir por qué.
+  for (const [campo, valor, minimo, maximo] of [
+    ['hora_apertura', hora_apertura, 0, 23],
+    ['hora_cierre', hora_cierre, 0, 23],
+  ]) {
+    if (valor === undefined) continue;
+    const n = Number(valor);
+    if (!Number.isInteger(n) || n < minimo || n > maximo) {
+      return res.status(400).json({ error: `${campo} tiene que ser una hora entera entre ${minimo} y ${maximo}.` });
+    }
+  }
+
+  if (hora_apertura !== undefined && hora_cierre !== undefined && Number(hora_cierre) <= Number(hora_apertura)) {
+    return res.status(400).json({ error: 'La hora de cierre tiene que ser posterior a la de apertura.' });
+  }
+
+  if (minutos_por_slot !== undefined && ![15, 30, 45, 60].includes(Number(minutos_por_slot))) {
+    return res.status(400).json({ error: 'Los minutos por turno tienen que ser 15, 30, 45 o 60.' });
+  }
+
+  // Formato "0,1,2,3,4,5,6" (domingo = 0). Vacío significa "atiende todos los
+  // días" y es válido a propósito.
+  if (dias_atencion !== undefined) {
+    const crudo = String(dias_atencion == null ? '' : dias_atencion).trim();
+    const dias = crudo === '' ? [] : crudo.split(',').map(d => d.trim());
+    if (!dias.every(d => /^[0-6]$/.test(d))) {
+      return res.status(400).json({ error: 'Los días que atiende tienen que ser números del 0 (domingo) al 6 (sábado), separados por comas.' });
+    }
   }
 
   try {
@@ -50,8 +88,11 @@ router.put('/', async (req, res) => {
 
     let serviciosJSON = configActual.servicios;
     if (servicios !== undefined) {
+      // String(...) sobre cada elemento: un arreglo con un null adentro hacía
+      // `null.trim()` y el guardado entero fallaba con un 500 sin pista.
       if (Array.isArray(servicios)) {
-        serviciosJSON = JSON.stringify(servicios.filter(s => s.trim()));
+        serviciosJSON = JSON.stringify(
+          servicios.map(s => String(s == null ? '' : s).trim()).filter(Boolean));
       } else if (typeof servicios === 'string') {
         serviciosJSON = JSON.stringify(servicios.split(',').map(s => s.trim()).filter(Boolean));
       }

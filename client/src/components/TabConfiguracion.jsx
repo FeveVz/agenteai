@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { obtenerConfiguracion, actualizarConfiguracion } from '../lib/api';
-import { MARCA } from '../config/marca';
 import { Grupo, Fila, Campo, CampoLargo } from './ui/Grupo';
+import { useNombreAgente } from './ui/useNombreAgente';
 
 const DIAS = [
   { n: 1, corto: 'L' }, { n: 2, corto: 'M' }, { n: 3, corto: 'M' },
@@ -18,6 +18,48 @@ const VACIO = {
   email_alertas: '', nombre_agente: '', tipo_negocio: '', estilo_respuesta: '',
   hora_apertura: 9, hora_cierre: 17, minutos_por_slot: 30, dias_atencion: '0,1,2,3,4,5,6',
 };
+
+const NOMBRES_DE_DIA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+const dosDigitos = (n) => `${String(n).padStart(2, '0')}:00`;
+
+/**
+ * La frase del horario derivada de los días y las horas configurados.
+ *
+ * Es el espejo en el panel de describirHorario() de server/utils/fechas.js:
+ * sirve para que Pamela vea, al lado del texto libre, lo que de verdad ofrece
+ * el calendario.
+ */
+function frasePorHorario(formulario) {
+  const dias = String(formulario.dias_atencion || '')
+    .split(',').map(d => Number(d)).filter(d => Number.isInteger(d) && d >= 0 && d <= 6);
+  const unicos = [...new Set(dias)].sort();
+  const horas = `de ${dosDigitos(formulario.hora_apertura)} a ${dosDigitos(formulario.hora_cierre)}`;
+
+  if (unicos.length === 0 || unicos.length === 7) return `Todos los días, ${horas}`;
+  const lista = unicos.filter(d => d !== 0).concat(unicos.includes(0) ? [0] : []).map(d => NOMBRES_DE_DIA[d]);
+  if (lista.length === 1) return `Solo ${lista[0]}, ${horas}`;
+  return `${lista.slice(0, -1).join(', ')} y ${lista[lista.length - 1]}, ${horas}`;
+}
+
+/**
+ * Las horas escritas en un texto libre que NO son las configuradas.
+ *
+ * Existe por un caso medido en la base de Pamela: el campo `horarios` decía
+ * "Visitas de lunes a domingo, de 09:00 a 17:00" mientras la configuración
+ * tenía apertura 08:00 y cierre 20:00. Esa frase viaja al prompt, así que el
+ * agente le decía al comprador un horario y el calendario le ofrecía otro.
+ * La contradicción la descubría el comprador.
+ */
+function horasQueContradicen(texto, apertura, cierre) {
+  const encontradas = String(texto || '').match(/\b([01]?\d|2[0-3]):[0-5]\d\b/g) || [];
+  const permitidas = new Set([dosDigitos(apertura), dosDigitos(cierre)]);
+  const normalizar = (h) => {
+    const [hh, mm] = h.split(':');
+    return `${String(Number(hh)).padStart(2, '0')}:${mm}`;
+  };
+  return [...new Set(encontradas.map(normalizar))].filter(h => !permitidas.has(h));
+}
 
 /**
  * Horario de atención.
@@ -105,12 +147,47 @@ function HorarioAtencion({ formulario, setFormulario, manejarCambio }) {
           </p>
         )}
       </Fila>
+
+      {/* El texto libre que viaja al prompt. No tenía dónde editarse: para
+          cambiarlo había que entrar a Supabase, y mientras tanto el agente
+          repetía un horario y una promesa de movilidad que Pamela no podía
+          retirar. */}
+      <CampoLargo
+        etiqueta="Frase que el agente repite sobre el horario"
+        name="horarios"
+        value={formulario.horarios}
+        onChange={manejarCambio}
+        filas={2}
+        placeholder="Ej: Visitas con cita previa. Coordinamos el punto de encuentro por este chat."
+        pista="Va tal cual al mensaje del agente. El calendario y la validación NO la usan: ellos se guían por los días y las horas de arriba. Si la dejas vacía, el agente deja de repetirla y no pasa nada más."
+      />
+
+      <Fila className="bg-black/[0.015]">
+        <p className="text-[12px] text-ios-etiqueta-3 leading-snug">
+          Según los días y las horas de arriba, el calendario ofrece:{' '}
+          <strong className="text-ios-etiqueta-2">{frasePorHorario(formulario)}</strong>.
+        </p>
+        {horasQueContradicen(formulario.horarios, formulario.hora_apertura, formulario.hora_cierre).length > 0 && (
+          <p className="text-[13px] text-ios-ambar leading-snug mt-2">
+            Tu frase menciona{' '}
+            <strong>
+              {horasQueContradicen(formulario.horarios, formulario.hora_apertura, formulario.hora_cierre).join(', ')}
+            </strong>
+            , que no es el horario configurado. El agente va a decir una cosa y el calendario va a
+            ofrecer otra, y el comprador lo va a notar.
+          </p>
+        )}
+      </Fila>
     </>
   );
 }
 
 export default function TabConfiguracion() {
   const queryClient = useQueryClient();
+  // Sale de la base, no de la variable de build: si no, Pamela renombra al
+  // agente, guarda, y el panel sigue diciendo el nombre viejo hasta el
+  // siguiente despliegue.
+  const nombreAgente = useNombreAgente();
   const [copiado, setCopiado] = useState(false);
   const [formulario, setFormulario] = useState(VACIO);
   const [guardado, setGuardado] = useState(VACIO);
@@ -184,7 +261,7 @@ export default function TabConfiguracion() {
     <div className="pb-24">
       <Grupo
         titulo="Identidad"
-        descripcion={`Así se presenta ${MARCA.agente} al iniciar cada conversación.`}
+        descripcion={`Así se presenta ${nombreAgente} al iniciar cada conversación.`}
       >
         <Campo etiqueta="Nombre de la empresa" name="nombre_agencia" value={formulario.nombre_agencia}
           onChange={manejarCambio} placeholder="Nombre comercial" />
@@ -249,7 +326,7 @@ export default function TabConfiguracion() {
         descripcion="WhatsApp solo entiende *negrita*, _cursiva_ y ~tachado~. No hay títulos, tablas ni colores."
       >
         <CampoLargo name="estilo_respuesta" value={formulario.estilo_respuesta} onChange={manejarCambio} filas={5}
-          placeholder={`Por defecto ${MARCA.agente} separa los datos en líneas, usa *negrita* para nombres y precios, y un emoji por dato.\n\nEscribe acá solo lo que quieras CAMBIAR. Por ejemplo:\n- Sin emojis, solo negritas.\n- Mensajes más cortos, máximo 60 palabras.`} />
+          placeholder={`Por defecto ${nombreAgente} separa los datos en líneas, usa *negrita* para nombres y precios, y un emoji por dato.\n\nEscribe acá solo lo que quieras CAMBIAR. Por ejemplo:\n- Sin emojis, solo negritas.\n- Mensajes más cortos, máximo 60 palabras.`} />
       </Grupo>
 
       <Grupo

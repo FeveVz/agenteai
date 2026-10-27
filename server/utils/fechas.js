@@ -3,30 +3,109 @@
 const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
+// Perú es UTC-5 todo el año (no hay horario de verano). El servidor de Vercel
+// corre en UTC, así que cualquier cuenta de "hoy" o de "ya pasó" hecha con la
+// hora del proceso se adelanta 5 horas: a las 20:00 UTC el servidor cree que
+// son las 20:00 y en Ica son las 15:00, y tacharía media tarde de turnos que
+// todavía están vivos.
+const ZONA_PERU = 'America/Lima';
+
+/**
+ * Lee el reloj de pared de un 'YYYY-MM-DDTHH:MM[:SS]' tal como está escrito.
+ *
+ * Esto NO es un detalle de estilo. `visitas.fecha_visita` es TEXT y guarda lo
+ * que eligió el comprador en la página ('2026-10-10T16:00:00', visita id 3).
+ * Pasarlo por `new Date(...)` funciona por casualidad: una cadena sin zona se
+ * interpreta como hora LOCAL del proceso, que en Vercel es UTC. El día que una
+ * fila entre con sufijo ('...T16:00:00Z' o '+00:00') ese mismo `new Date` la
+ * lee como UTC y getHours() devuelve 11 en Lima y 16 en el servidor: el turno
+ * ocupado deja de coincidir con el de la grilla y se agendan dos visitas sobre
+ * la misma hora. Leyendo los dígitos no hay zona que pueda correr la hora.
+ *
+ * Devuelve null si la cadena no tiene esa forma — lo que ya llegó de verdad:
+ * 'mañana a las 3' escrito por el modelo.
+ */
+function leerFechaHora(valor) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(String(valor == null ? '' : valor).trim());
+  if (!m) return null;
+
+  const anio = Number(m[1]);
+  const mes = Number(m[2]);
+  const dia = Number(m[3]);
+  const hora = m[4] == null ? 0 : Number(m[4]);
+  const minuto = m[5] == null ? 0 : Number(m[5]);
+
+  if (mes < 1 || mes > 12 || dia < 1 || hora > 23 || minuto > 59) return null;
+
+  // Rechaza el 31 de febrero: si el día no existe en ese mes, Date lo corre.
+  const utc = new Date(Date.UTC(anio, mes - 1, dia));
+  if (utc.getUTCMonth() !== mes - 1 || utc.getUTCDate() !== dia) return null;
+
+  return { anio, mes, dia, hora, minuto, diaSemana: utc.getUTCDay() };
+}
+
 /**
  * Formatea una fecha ISO a texto legible en español
  * Ej: "2026-03-22T14:30:00" → "domingo 22 de marzo de 2026 a las 14:30"
+ *
+ * Con basura devuelve la cadena original. Antes `new Date('mañana a las 3')`
+ * daba Invalid Date y el comprador recibía por WhatsApp "Visita confirmada ...
+ * el jueves 1 de marzo de 2001 a las 00:00": una fecha que suena real y que
+ * nadie puede detectar como inventada.
  */
 function formatearFechaCompleta(fechaISO) {
-  const fecha = new Date(fechaISO);
-  const diaSemana = DIAS_SEMANA[fecha.getDay()];
-  const dia = fecha.getDate();
-  const mes = MESES[fecha.getMonth()];
-  const anio = fecha.getFullYear();
-  const hora = String(fecha.getHours()).padStart(2, '0');
-  const minutos = String(fecha.getMinutes()).padStart(2, '0');
-  return `${diaSemana} ${dia} de ${mes} de ${anio} a las ${hora}:${minutos}`;
+  const p = leerFechaHora(fechaISO);
+  if (!p) return String(fechaISO == null ? '' : fechaISO);
+
+  const hora = String(p.hora).padStart(2, '0');
+  const minutos = String(p.minuto).padStart(2, '0');
+  return `${DIAS_SEMANA[p.diaSemana]} ${p.dia} de ${MESES[p.mes - 1]} de ${p.anio} a las ${hora}:${minutos}`;
 }
 
 /**
  * Formatea solo la hora de una fecha ISO
  * Ej: "2026-03-22T14:30:00" → "14:30"
+ *
+ * Devuelve null si no se puede leer: así una fila envenenada no aporta un
+ * horario ocupado falso (antes 'mañana a las 3' producía 'NaN:NaN').
  */
 function formatearHora(fechaISO) {
-  const fecha = new Date(fechaISO);
-  const hora = String(fecha.getHours()).padStart(2, '0');
-  const minutos = String(fecha.getMinutes()).padStart(2, '0');
-  return `${hora}:${minutos}`;
+  const p = leerFechaHora(fechaISO);
+  if (!p) return null;
+  return `${String(p.hora).padStart(2, '0')}:${String(p.minuto).padStart(2, '0')}`;
+}
+
+/**
+ * El reloj de Ica: la fecha 'YYYY-MM-DD' y los minutos transcurridos del día,
+ * calculados con Intl y no con `new Date(d.toLocaleString(...))`.
+ *
+ * Ese truco funcionaba, pero depende de que V8 sepa reparsear "10/26/2026,
+ * 4:45:12 PM". Acá los números salen directo de las partes formateadas.
+ */
+function relojEnPeru(instante) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ZONA_PERU,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+
+  const p = {};
+  for (const parte of fmt.formatToParts(instante || new Date())) p[parte.type] = parte.value;
+
+  return {
+    fecha: `${p.year}-${p.month}-${p.day}`,
+    minutos: (Number(p.hour) % 24) * 60 + Number(p.minute),
+  };
+}
+
+/** 'YYYY-MM-DD' de hoy en Ica. */
+function fechaHoyEnPeru(instante) {
+  return relojEnPeru(instante).fecha;
+}
+
+/** Minutos transcurridos del día en Ica (14:30 → 870). */
+function minutosDelDiaEnPeru(instante) {
+  return relojEnPeru(instante).minutos;
 }
 
 // ── Horario de atención ───────────────────────────────────────────────────────
@@ -89,9 +168,9 @@ function resolverHorario(config) {
 /** ¿Se atiende ese día de la semana? `fecha` es 'YYYY-MM-DD'. */
 function esDiaDeAtencion(fecha, horario) {
   const h = horario || HORARIO_POR_DEFECTO;
-  const [a, m, d] = String(fecha).split('-').map(Number);
-  if (!a || !m || !d) return false;
-  return h.dias.includes(new Date(a, m - 1, d).getDay());
+  const p = leerFechaHora(fecha);
+  if (!p) return false;
+  return h.dias.includes(p.diaSemana);
 }
 
 /**
@@ -144,14 +223,59 @@ function generarHorariosDelDia(horario) {
 }
 
 /**
+ * ¿Ese día y esa hora son agendables? Única fuente de verdad del contrato.
+ *
+ * Vive acá y no dentro de la ruta pública porque la página web validaba el día,
+ * el turno y el pasado mientras `agendar_visita` no validaba nada: el modelo
+ * podía agendar fuera del horario de atención y Pamela recibía la alerta por
+ * correo comprometida a una hora que no atiende. Con 3 visitas en todo el
+ * historial, una mal agendada es un tercio del resultado.
+ *
+ * `margenMinutos` es el aire mínimo contra el reloj de Ica. Al reservar va en 0
+ * a propósito: la grilla pública ya solo ofrece turnos a más de una hora, y
+ * volver a exigir ese margen al confirmar rechazaría el turno que el comprador
+ * acaba de elegir si tardó unos minutos en llenar el formulario.
+ */
+function validarRanura(fecha, hora, horario, opciones) {
+  const margenMinutos = (opciones && Number(opciones.margenMinutos)) || 0;
+  const h = horario || HORARIO_POR_DEFECTO;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha == null ? '' : fecha)) || !leerFechaHora(fecha)) {
+    return { ok: false, motivo: 'fecha', mensaje: 'Elige una fecha válida del calendario.' };
+  }
+  if (!/^\d{2}:\d{2}$/.test(String(hora == null ? '' : hora))) {
+    return { ok: false, motivo: 'hora', mensaje: 'Elige un horario de la lista.' };
+  }
+  if (!esDiaDeAtencion(fecha, h)) {
+    return { ok: false, motivo: 'dia', mensaje: `Ese día no atendemos. ${describirHorario(h)}.` };
+  }
+  if (!generarHorariosDelDia(h).includes(hora)) {
+    return { ok: false, motivo: 'turno', mensaje: `Ese horario no está dentro de la atención. ${describirHorario(h)}.` };
+  }
+
+  const reloj = relojEnPeru(opciones && opciones.ahora);
+  const [hh, mm] = hora.split(':').map(Number);
+  if (fecha < reloj.fecha || (fecha === reloj.fecha && hh * 60 + mm < reloj.minutos + margenMinutos)) {
+    return { ok: false, motivo: 'pasado', mensaje: 'Ese horario ya pasó. Elige uno más adelante.' };
+  }
+
+  return { ok: true };
+}
+
+/**
  * Extrae los horarios ocupados de una lista de visitas
+ *
+ * Las filas que no se pueden leer se descartan en vez de aportar 'NaN:NaN'.
  */
 function extraerHorariosOcupados(visitas) {
-  return visitas.map(v => formatearHora(v.fecha_visita));
+  return (visitas || []).map(v => formatearHora(v.fecha_visita)).filter(Boolean);
 }
 
 /**
  * Devuelve los horarios libres para una fecha dado un array de visitas
+ *
+ * Quien llama es responsable de excluir las visitas canceladas: el turno de una
+ * visita que el comprador canceló por teléfono quedaba bloqueado para siempre.
  */
 function calcularHorariosLibres(visitas, horario) {
   const todos = generarHorariosDelDia(horario);
@@ -178,12 +302,17 @@ module.exports = {
   HORA_APERTURA,
   HORA_CIERRE,
   HORARIO_POR_DEFECTO,
+  ZONA_PERU,
   resolverHorario,
   esDiaDeAtencion,
   describirDias,
   describirHorario,
   formatearFechaCompleta,
   formatearHora,
+  leerFechaHora,
+  fechaHoyEnPeru,
+  minutosDelDiaEnPeru,
+  validarRanura,
   generarHorariosDelDia,
   extraerHorariosOcupados,
   calcularHorariosLibres,
