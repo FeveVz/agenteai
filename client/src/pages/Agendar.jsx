@@ -182,6 +182,14 @@ export default function Agendar() {
   const [nombre, setNombre] = useState('');
   const [telefonoContacto, setTelefonoContacto] = useState('');
   const [notas, setNotas] = useState('');
+  // Separados del campo libre a propósito: cuando esto era un solo textarea con
+  // el marcador "cuántas personas van, si necesitas movilidad...", la gente
+  // contestaba la primera mitad y en la base quedaron notas que dicen "2" y
+  // "4". Y la movilidad, que es la que puede arruinar una visita confirmada, no
+  // quedaba anotada en ninguna parte.
+  const [personas, setPersonas] = useState('');
+  const [necesitaMovilidad, setNecesitaMovilidad] = useState(false);
+  const [puntoRecojo, setPuntoRecojo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const [confirmada, setConfirmada] = useState(null);
@@ -284,6 +292,8 @@ export default function Agendar() {
           hora,
           proyecto,
           notas,
+          personas,
+          punto_recojo: necesitaMovilidad ? puntoRecojo : '',
           telefono_contacto: telefonoContacto,
         }),
       });
@@ -524,12 +534,66 @@ export default function Agendar() {
             )}
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-600">¿Algo que debamos saber? (opcional)</label>
+              <label className="block text-xs font-medium text-gray-600">¿Cuántas personas van?</label>
+              <div className="flex gap-2">
+                {['1', '2', '3', '4+'].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPersonas(personas === n ? '' : n)}
+                    className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      personas === n
+                        ? 'bg-marca-orange border-marca-orange text-white'
+                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => setNecesitaMovilidad(v => !v)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                  necesitaMovilidad
+                    ? 'bg-marca-orange/10 border-marca-orange text-marca-orange'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span>Necesito movilidad para llegar</span>
+                <span
+                  className={`w-5 h-5 rounded-md border flex items-center justify-center ${
+                    necesitaMovilidad ? 'bg-marca-orange border-marca-orange' : 'border-gray-300'
+                  }`}
+                >
+                  {necesitaMovilidad && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+
+              {necesitaMovilidad && (
+                <input
+                  value={puntoRecojo}
+                  onChange={e => setPuntoRecojo(e.target.value)}
+                  placeholder="¿Desde dónde te recogemos? Ej: Tinguiña, plaza de armas"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
+                />
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-gray-600">¿Algo más que debamos saber? (opcional)</label>
               <textarea
                 value={notas}
                 onChange={e => setNotas(e.target.value)}
                 rows={2}
-                placeholder="Cuántas personas van, si necesitas movilidad..."
+                placeholder="Lo que quieras contarnos antes de la visita"
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-marca-orange transition-all"
               />
             </div>

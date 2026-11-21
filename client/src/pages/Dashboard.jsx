@@ -7,12 +7,13 @@ import TabProyectos from '../components/TabProyectos';
 import TabConfiguracion from '../components/TabConfiguracion';
 import TabConstructoras from '../components/TabConstructoras';
 import TabAprendizaje from '../components/TabAprendizaje';
+import TabEmbudo from '../components/TabEmbudo';
 import LoginGate from '../components/LoginGate';
 import { cerrarSesion } from '../lib/api';
 import { MARCA } from '../config/marca';
 import {
   IconoMensajes, IconoVisitas, IconoProyectos, IconoConstructoras,
-  IconoConfiguracion, IconoInicio, IconoSalir, IconoAprendizaje,
+  IconoConfiguracion, IconoInicio, IconoSalir, IconoAprendizaje, IconoEmbudo,
 } from '../components/ui/Iconos';
 
 /**
@@ -23,6 +24,7 @@ import {
  * que faltaba cuando esto eran cinco pestañas con una palabra cada una.
  */
 const ZONAS = [
+  { id: 'embudo', etiqueta: 'Embudo', Icono: IconoEmbudo, resumen: 'Cuántos escribieron, cuántos agendaron y a quién le falta un empujón' },
   { id: 'mensajes', etiqueta: 'Mensajes', Icono: IconoMensajes, resumen: 'Lo que conversa el agente con cada interesado' },
   { id: 'visitas', etiqueta: 'Visitas', Icono: IconoVisitas, resumen: 'Las visitas agendadas, en lista y en calendario' },
   { id: 'proyectos', etiqueta: 'Proyectos', Icono: IconoProyectos, resumen: 'El catálogo. Solo habla de lo que esté acá' },
@@ -139,6 +141,7 @@ function Panel() {
             {zonaActiva === 'visitas' && <TabVisitas />}
             {zonaActiva === 'proyectos' && <TabProyectos />}
             {zonaActiva === 'constructoras' && <TabConstructoras />}
+            {zonaActiva === 'embudo' && <TabEmbudo />}
             {zonaActiva === 'aprendizaje' && <TabAprendizaje />}
             {zonaActiva === 'configuracion' && <TabConfiguracion />}
           </main>

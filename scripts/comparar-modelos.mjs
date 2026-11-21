@@ -45,8 +45,13 @@ const GUION = [
 
 function medir(texto) {
   const palabras = texto.trim().split(/\s+/).length;
-  const lineasDeFicha = texto.split('\n')
+  // Tres o más líneas con emoji son una ficha; dos son una respuesta normal
+  // bien escrita. Medido contra el tráfico de noviembre: el umbral de 1 marcaba
+  // como ficha respuestas que daban dos datos y una pregunta, que es justo lo
+  // que queremos. De 190 respuestas, 25 tenían una o dos y solo 6 tenían tres.
+  const conEmoji = texto.split('\n')
     .filter(l => /^\s*[\p{Emoji_Presentation}\u{1F300}-\u{1FAFF}]/u.test(l)).length;
+  const lineasDeFicha = conEmoji >= 3 ? conEmoji : 0;
   const markdown = (texto.match(/\*\*|\[[^\]]*\]\(/g) || []).length;
   const seDespide = /(hasta luego|cuidate|que tengas un (excelente|buen)|te deseo)/i.test(texto);
   const horaConcreta = /\b([01]?\d|2[0-3]):[0-5]\d\b/.test(texto);

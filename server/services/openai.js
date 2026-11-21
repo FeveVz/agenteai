@@ -12,7 +12,7 @@ const { buscarPorNombre, normalizar } = require('../utils/proyectos');
 const { limpiarWhatsApp } = require('../utils/formatoWhatsApp');
 const { obtenerCorreccionesParaPrompt, obtenerMemoriaComprador } = require('./aprendizaje');
 const { instruccionSegunHistorial } = require('../utils/conversacion');
-const { crearEnlaceAgenda } = require('../routes/agenda');
+const { crearEnlaceAgenda, componerNotas: componerNotasVisita } = require('../routes/agenda');
 const { enviarAlertaVisita } = require('./email');
 
 // El modelo se elige por variable de entorno para poder comparar candidatos
@@ -182,7 +182,9 @@ const HERRAMIENTAS = [
           nombre_cliente: { type: 'string', description: 'Nombre completo real del cliente.' },
           fecha_visita: { type: 'string', description: 'Formato ISO: "2026-08-14T10:30:00"' },
           proyecto_interes: { type: 'string', description: 'Nombre exacto del proyecto que va a visitar. Debe ser uno de los proyectos reales del catálogo.' },
-          notas: { type: 'string', description: 'Información adicional: cuántas personas van, si necesita movilidad, presupuesto aproximado, uso (vivienda o inversión). Opcional.' },
+          personas: { type: 'integer', description: 'Cuántas personas van a la visita, si lo dijo.' },
+          punto_recojo: { type: 'string', description: 'Desde dónde hay que recogerlo, si pidió movilidad. Textual, como lo dijo él: "Tinguiña", "la plaza de armas". Déjalo vacío si no pidió movilidad.' },
+          notas: { type: 'string', description: 'Cualquier otra cosa que convenga que sepa la asesora. NO repitas acá las personas ni el punto de recojo.' },
         },
         required: ['numero_telefono', 'nombre_cliente', 'fecha_visita', 'proyecto_interes'],
       },
@@ -809,7 +811,7 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
     }
 
     case 'agendar_visita': {
-      const { numero_telefono, nombre_cliente, fecha_visita, proyecto_interes, notas } = argumentos;
+      const { numero_telefono, nombre_cliente, fecha_visita, proyecto_interes, notas, personas, punto_recojo } = argumentos;
 
       // La fecha se insertaba tal como la escribia el modelo. La columna es
       // texto, asi que la base acepta cualquier cadena, y formatearFechaCompleta
@@ -891,7 +893,10 @@ async function ejecutarHerramienta(nombre, argumentos, contexto = {}) {
           fecha_visita,
           proyecto_interes: proyectoCanonico,
           estado: 'confirmada',
-          notas: notas || null,
+          // La misma nota que arma el calendario web, para que Pamela lea lo
+          // mismo venga de donde venga. Gean Romano pidio por chat que lo
+          // recojan desde Tinguiña y su visita quedo con notas en null.
+          notas: componerNotasVisita({ personas, punto_recojo, notas }),
         })
         .select()
         .single();

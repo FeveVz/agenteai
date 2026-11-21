@@ -46,13 +46,36 @@ function escapar(txt) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/**
+ * Separa el punto de recojo del resto de la nota.
+ *
+ * Las notas se arman con " · " entre partes, y el recojo viene marcado como
+ * "RECOGER EN: <lugar>" desde el calendario web y desde el agente.
+ */
+function separarRecojo(notas) {
+  const partes = String(notas == null ? '' : notas).split(' · ').map(p => p.trim()).filter(Boolean);
+  const marcada = partes.find(p => /^RECOGER EN:/i.test(p));
+
+  return {
+    recojo: marcada ? marcada.replace(/^RECOGER EN:\s*/i, '').trim() : null,
+    resto: partes.filter(p => p !== marcada).join(' · ') || null,
+  };
+}
+
 function construirHtml({ nombre, telefono, proyecto, fechaLegible, notas, origen, empresa }) {
+  // El recojo sale de las notas y se muestra aparte, resaltado. Una visita
+  // confirmada a la que nadie pasa a recoger es una visita perdida, y es lo
+  // más caro que produce todo este programa: no puede ir diluido en un campo
+  // de texto libre junto a "vamos 2 personas".
+  const { recojo, resto } = separarRecojo(notas);
+
   const filas = [
     ['Cliente', escapar(nombre)],
     ['Teléfono', `<a href="https://wa.me/${escapar(String(telefono).replace(/\D/g, ''))}" style="color:#F5851F;text-decoration:none">${escapar(telefono)}</a>`],
     ['Proyecto', escapar(proyecto)],
     ['Fecha y hora', escapar(fechaLegible)],
-    notas ? ['Notas', escapar(notas)] : null,
+    recojo ? ['Movilidad', `<strong style="color:#F5851F">Recoger en ${escapar(recojo)}</strong>`] : null,
+    resto ? ['Notas', escapar(resto)] : null,
     ['Agendada desde', origen === 'link' ? 'El calendario web' : 'La conversación de WhatsApp'],
   ].filter(Boolean);
 
@@ -137,4 +160,4 @@ async function enviarAlertaVisita(visita, config) {
   }
 }
 
-module.exports = { enviarAlertaVisita, estaConfigurado, parsearDestinatarios, construirRemitente };
+module.exports = { enviarAlertaVisita, estaConfigurado, parsearDestinatarios, construirRemitente, separarRecojo, construirHtml };

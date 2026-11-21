@@ -123,3 +123,11 @@ export const crearCorreccion = (datos) => pedirJSON('/aprendizaje/correcciones',
 export const actualizarCorreccion = ({ id, ...datos }) => pedirJSON(`/aprendizaje/correcciones/${id}`, 'PUT', datos);
 
 export const obtenerCompradores = () => pedir('/aprendizaje/compradores');
+
+/**
+ * El embudo y los leads que se enfriaron.
+ *
+ * Es lo único del panel que le dice a Pamela cuántos entraron y cuántos
+ * llegaron a agendar: hasta ahora ese número no existía en ninguna pantalla.
+ */
+export const obtenerEmbudo = () => pedir('/embudo');

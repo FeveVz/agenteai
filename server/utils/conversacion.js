@@ -159,10 +159,49 @@ function yaVisito(texto) {
  * ficha, se despidió. El que cierra una conversación de ventas es el
  * comprador, nunca el vendedor.
  */
-const DESPEDIDA = /(hasta luego|hasta pronto|que tengas (un |una )?(excelente|buen|gran|lindo)|cuidate|te deseo (mucho )?(exito|suerte)|exito en tu busqueda|que te vaya bien|avisame si te decides|estare (aqui|aca) (para|si)|no dudes en (escribirme|contactarme))/i;
+// Medido sobre el tráfico de noviembre: la primera versión contaba "no dudes
+// en escribirme" y "estaré aquí para ayudarte" como despedidas, y esas frases
+// aparecen dentro de respuestas perfectamente buenas. La mitad de las
+// "despedidas" que marcó eran correctas. Acá solo quedan las que de verdad
+// cierran la puerta.
+const DESPEDIDA = /(hasta luego|hasta pronto|que tengas (un |una )?(excelente|buen|gran|lindo)|cuidate|te deseo (mucho )?(exito|suerte)|exito en tu busqueda|que te vaya bien|avisame si te decides|nos vemos pronto)/i;
 
 function seDespidio(texto) {
   return DESPEDIDA.test(sinTildes(texto));
+}
+
+// Cuando es el comprador el que cierra, despedirse es lo correcto: no hay nada
+// que sostener. "A ok gracias", "Ok gracias x su tiempo", "Listo" — los tres
+// salieron del tráfico real y los tres recibieron una despedida que estuvo bien.
+/**
+ * ¿El comprador está cerrando él mismo la conversación?
+ *
+ * Hay dos fuerzas distintas y la diferencia importa:
+ *
+ *   - "gracias", "hasta luego", "chau" cierran de verdad. Después de eso,
+ *     despedirse es lo correcto y seguir vendiendo es pesado.
+ *   - "ok", "listo", "ya" son acuse de recibo. El contacto
+ *     PE.981400590890326 escribió "Ok" siete veces esperando que el agente
+ *     llevara la conversación, y recibió siete despedidas distintas.
+ *
+ * Por eso el "ok" solo vale como cierre mientras el agente no se haya
+ * despedido ya: si ya se despidió y la persona sigue escribiendo, sigue ahí.
+ */
+function clienteCierra(texto, { yaSeDespidioElAgente = false } = {}) {
+  const t = sinTildes(texto).replace(/[!.,]+$/, '').trim();
+  if (!t) return false;
+
+  // Una pregunta nunca cierra nada, por mucho que empiece con "gracias".
+  if (t.endsWith('?')) return false;
+
+  // Y un cierre es corto: "gracias, ahora dime cuánto sale el metro" no lo es.
+  if (t.split(/\s+/).length > 6) return false;
+
+  const cierreFuerte = /\bgracias\b|\bhasta luego\b|\bnos vemos\b|\bchau\b|\bbye\b/.test(t);
+  if (cierreFuerte) return true;
+
+  const acuseDeRecibo = /^(ok|oka|okey|ya|listo|perfecto|dale|bueno)$/.test(t);
+  return acuseDeRecibo && !yaSeDespidioElAgente;
 }
 
 /** Pistas sobre quién es la persona, sacadas de lo que ella misma escribió. */
@@ -293,7 +332,11 @@ function instruccionSegunHistorial(historial, mensajeActual) {
 
   // ── El agente se está despidiendo solo ──────────────────────────
   const despedidas = delAgente.filter(m => seDespidio(m.contenido_mensaje)).length;
-  if (despedidas >= 1 && ultimo && !seDespidio(ultimo.contenido_mensaje)) {
+
+  const cerroElCliente = ultimo
+    && clienteCierra(ultimo.contenido_mensaje, { yaSeDespidioElAgente: despedidas >= 1 });
+
+  if (despedidas >= 1 && ultimo && !cerroElCliente && !seDespidio(ultimo.contenido_mensaje)) {
     avisos.push(
       `Ya te despediste ${despedidas === 1 ? 'una vez' : `${despedidas} veces`} en esta conversación `
       + 'y la persona siguió escribiendo. El que cierra una conversación de ventas es el comprador, '
@@ -385,6 +428,7 @@ module.exports = {
   seVaAPensar,
   yaVisito,
   seDespidio,
+  clienteCierra,
   perfilComprador,
   instruccionSegunHistorial,
 };

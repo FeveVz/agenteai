@@ -297,6 +297,40 @@ function esFechaValida(f) {
   return typeof f === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f);
 }
 
+/**
+ * La nota de la visita, armada acá y no en el navegador.
+ *
+ * El campo era un textarea libre con el marcador "cuántas personas van, si
+ * necesitas movilidad...", y en la base quedaron notas que dicen literalmente
+ * "2" y "4": la gente contestó la primera mitad de la frase. Pamela abre el
+ * correo y lee un número suelto.
+ *
+ * Peor es lo que NO quedó: Gean Romano pidió por chat que lo recojan desde
+ * Tinguiña, el agente dijo que coordinaban, y su visita tiene notas en null.
+ * El día de la visita nadie sabe dónde pasar por él. Un recojo perdido es una
+ * visita perdida, y una visita es lo más caro que produce todo este programa.
+ *
+ * Se compone en el servidor para que la misma nota salga igual venga del
+ * calendario web o de la conversación.
+ */
+function componerNotas({ personas, punto_recojo: puntoRecojo, notas }) {
+  const partes = [];
+
+  const cuantas = Number.parseInt(personas, 10);
+  if (Number.isFinite(cuantas) && cuantas > 0 && cuantas <= 20) {
+    partes.push(`${cuantas} ${cuantas === 1 ? 'persona' : 'personas'}`);
+  }
+
+  const recojo = String(puntoRecojo == null ? '' : puntoRecojo).trim();
+  if (recojo) partes.push(`RECOGER EN: ${recojo.slice(0, 120)}`);
+
+  const libre = String(notas == null ? '' : notas).trim();
+  // Un "2" suelto ya viaja como "2 personas": no se repite.
+  if (libre && !/^\d{1,2}$/.test(libre)) partes.push(libre.slice(0, 300));
+
+  return partes.length ? partes.join(' · ') : null;
+}
+
 /** Los turnos de un día ya libres, descontando las horas pasadas si es hoy. */
 function libresDelDia(fecha, visitas, horario, margenMinutos) {
   if (!esDiaDeAtencion(fecha, horario)) return [];
@@ -409,7 +443,7 @@ router.get('/:codigo/disponibilidad', requiereCodigoAgenda, async (req, res) => 
 // ── POST /api/agenda/reservar ────────────────────────────────────────────────
 router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
   const telefono = req.telefonoCliente;
-  const { nombre, fecha, hora, proyecto, notas, telefono_contacto } = req.body || {};
+  const { nombre, fecha, hora, proyecto, notas, telefono_contacto, personas, punto_recojo } = req.body || {};
 
   // Dos caracteres y "con el que quieres que te llamemos", no el nombre de DNI.
   // Es el último campo del embudo (11 enlaces, 1 reserva) y el nombre legal lo
@@ -513,7 +547,7 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
       fecha_visita: fechaVisita,
       proyecto_interes: elegido.nombre,
       estado: 'confirmada',
-      notas: notas ? String(notas).trim() : null,
+      notas: componerNotas({ personas, punto_recojo, notas }),
     };
 
     let visita;
@@ -574,6 +608,7 @@ router.post('/:codigo/reservar', requiereCodigoAgenda, async (req, res) => {
 
 module.exports = {
   router,
+  componerNotas,
   crearEnlaceAgenda,
   crearEnlaceAgendaDetallado,
   esTelefonoAlcanzable,

@@ -100,3 +100,12 @@ export function IconoAprendizaje(props) {
     </svg>
   );
 }
+
+/** Embudo: lo que entra arriba y lo poco que sale abajo. */
+export function IconoEmbudo(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 4h18l-7 8v7l-4 2v-9L3 4Z" />
+    </svg>
+  );
+}

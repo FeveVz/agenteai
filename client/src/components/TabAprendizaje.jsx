@@ -188,6 +188,7 @@ export default function TabAprendizaje() {
   const cupo = dCorrecciones?.cupo;
   const activas = correcciones.filter(c => c.activa);
   const desalojadas = cupo?.desalojadas || [];
+  const contradicciones = cupo?.contradicciones || [];
   const compradores = dCompradores?.compradores || [];
 
   // Las de conducta no se arreglan con un ejemplo de texto: el botón de
@@ -440,6 +441,40 @@ export default function TabAprendizaje() {
             + 'guardado en el proyecto o en las preguntas frecuentes: esa corrección libera su lugar.'
           }
         >
+          {/* Dos correcciones diciendo lo contrario sobre el mismo tema es lo
+              más caro que puede pasar acá, y nadie podía verlo: el panel las
+              lista una debajo de otra sin cruzarlas. Pasó de verdad — una
+              decía que no trabajan con Techo Propio y otra que sí, y como al
+              agente solo le llegan las más nuevas, estuvo ofreciéndole a
+              compradores reales un bono que la inmobiliaria no maneja. */}
+          {contradicciones.length > 0 && (
+            <Fila className="bg-ios-rojo/[0.06]">
+              <p className="text-[14px] font-semibold text-ios-rojo leading-snug">
+                {contradicciones.length === 1
+                  ? 'Dos correcciones se contradicen'
+                  : `Hay ${contradicciones.length} temas con correcciones que se contradicen`}
+              </p>
+              <p className="text-[13px] text-ios-etiqueta-2 mt-1 leading-snug">
+                El agente le hace caso a la más nueva. Mientras no borres una, puede estar
+                diciéndole a los compradores lo contrario de lo que tú quieres.
+              </p>
+              {contradicciones.map((c) => (
+                <div key={c.tema} className="mt-2.5">
+                  <p className="text-[13px] font-medium text-ios-etiqueta">Sobre {c.tema}:</p>
+                  <p className="text-[13px] text-ios-etiqueta-2 mt-1 leading-snug">
+                    · “{c.niega}”
+                  </p>
+                  <p className="text-[13px] text-ios-etiqueta-2 mt-1 leading-snug">
+                    · “{c.afirma}”
+                  </p>
+                </div>
+              ))}
+              <p className="text-[13px] text-ios-etiqueta-2 mt-2 leading-snug">
+                Apaga la que esté mal con el interruptor de su fila.
+              </p>
+            </Fila>
+          )}
+
           {/* El tope se cruzaba en silencio: con 6 correcciones cargadas y 6
               de cupo, la séptima desalojaba a otra y Pamela veía la fila en
               el panel asumiendo que el agente ya había aprendido. */}

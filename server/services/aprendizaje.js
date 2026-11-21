@@ -536,7 +536,79 @@ async function estadoCorrecciones(supabase = obtenerSupabase()) {
     viajan: viajan.map(resumir),
     desalojadas: desalojadas.map(resumir),
     resueltas: resueltas.length,
+    contradicciones: buscarContradicciones([...viajan, ...desalojadas]),
   };
+}
+
+// Los temas sobre los que una contradicción le cuesta plata a alguien. No es
+// una lista de palabras bonitas: son los que ya aparecieron en el panel de
+// Pamela, y los que un comprador usa para decidir.
+const TEMAS = [
+  ['techo propio', /techo propio/i],
+  ['bono Mi Vivienda', /mi vivienda/i],
+  ['la cuota inicial', /\binicial\b/i],
+  ['la reserva', /\breserva\b/i],
+  ['la etapa de la urbanización', /\betapas?\b/i],
+  ['los requisitos de compra', /requisit/i],
+  ['el precio al contado', /al contado/i],
+  ['el título de propiedad', /\bt[íi]tulos?\b/i],
+];
+
+// "no trabajamos con", "no contamos con", "no aplica". Lo que convierte una
+// frase sobre un tema en su contrario.
+const NIEGA = /\bno\s+(se\s+)?(trabaj|cont(amos|ar)|manej|aplic|ten(emos|go)|hay|dispon|exist)/i;
+
+/**
+ * Correcciones que hablan del mismo tema diciendo cosas opuestas.
+ *
+ * Pasó de verdad y le estaba costando ventas: la corrección 1 decía
+ * "actualmente no trabajo con proyectos en modalidad Techo Propio" y la 9
+ * decía "en Torres de Parcona se puede acceder a bonos como Techo Propio".
+ * Como al prompt solo entran las más nuevas, viajaba la 9 y el agente le
+ * ofrecía a compradores reales un bono que la inmobiliaria no maneja.
+ *
+ * Nadie podía verlo: el panel las lista una debajo de otra, sin cruzarlas.
+ */
+/**
+ * ¿La frase niega ESTE tema, o solo tiene un "no" en otra parte?
+ *
+ * La primera versión buscaba la negación en todo el texto y marcaba como
+ * contradictorias dos correcciones que decían lo mismo: una dice "no trabajo
+ * con Techo Propio, podemos trabajar con el bono Mi Vivienda" y la negación
+ * es del primer tema, no del segundo. Hay que mirar alrededor de la palabra.
+ */
+function niegaElTema(texto, patron) {
+  const frase = String(texto || '');
+  const donde = frase.search(patron);
+  if (donde < 0) return false;
+
+  const ventana = frase.slice(Math.max(0, donde - 60), donde + 20);
+  return NIEGA.test(ventana);
+}
+
+function buscarContradicciones(correcciones) {
+  const choques = [];
+
+  for (const [tema, patron] of TEMAS) {
+    const hablan = correcciones.filter(c => patron.test(String(c.debio_decir || '')));
+    if (hablan.length < 2) continue;
+
+    const niegan = hablan.filter(c => niegaElTema(c.debio_decir, patron));
+    const afirman = hablan.filter(c => !niegaElTema(c.debio_decir, patron));
+
+    if (niegan.length > 0 && afirman.length > 0) {
+      choques.push({
+        tema,
+        // La que dice que NO primero: suele ser la regla y la otra la excepción
+        // mal escrita, y así Pamela lee el conflicto en el orden que importa.
+        ids: [...niegan, ...afirman].map(c => c.id),
+        niega: niegan[0].debio_decir,
+        afirma: afirman[0].debio_decir,
+      });
+    }
+  }
+
+  return choques;
 }
 
 // ── Memoria del comprador ───────────────────────────────────────────
@@ -654,6 +726,7 @@ module.exports = {
   obtenerCorreccionesParaPrompt,
   seleccionarCorrecciones,
   estadoCorrecciones,
+  buscarContradicciones,
   obtenerMemoriaComprador,
   formatearMemoriaComprador,
   formatearConversaciones,

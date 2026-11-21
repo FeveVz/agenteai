@@ -47,7 +47,12 @@ function separador(t) {
 
 function medir(texto) {
   const palabras = texto.trim().split(/\s+/).length;
-  const lineasDato = texto.split('\n').filter(l => /^\s*[\p{Emoji_Presentation}\u{1F300}-\u{1FAFF}]/u.test(l)).length;
+  // Una ficha son TRES o más datos uno debajo del otro. Dos líneas que empiezan
+  // con un emoji son una respuesta bien escrita, no un folleto: con el umbral
+  // en 1, esta medición marcaba como ficha respuestas que daban dos datos y una
+  // pregunta, que es exactamente la forma que buscamos.
+  const conEmoji = texto.split('\n').filter(l => /^\s*[\p{Emoji_Presentation}\u{1F300}-\u{1FAFF}]/u.test(l)).length;
+  const lineasDato = conEmoji >= 3 ? conEmoji : 0;
   const markdown = (texto.match(/\*\*|\[[^\]]*\]\(/g) || []).length;
   return { palabras, lineasDato, markdown };
 }
